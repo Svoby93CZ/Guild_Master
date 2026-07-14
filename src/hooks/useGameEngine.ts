@@ -401,6 +401,15 @@ export function useGameEngine() {
     });
   }, []);
 
+  const updateHeroStory = useCallback((heroId: string, story: string) => {
+    setGameState(prev => {
+      return {
+        ...prev,
+        heroes: prev.heroes.map(h => h.id === heroId ? { ...h, story } : h)
+      };
+    });
+  }, []);
+
   const craftItem = useCallback((
     name: string, 
     type: 'weapon' | 'armor', 
@@ -563,6 +572,7 @@ export function useGameEngine() {
     createHero,
     deleteHero,
     renameHero,
+    updateHeroStory,
     craftItem,
     craftMaterial
   };

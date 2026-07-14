@@ -2,7 +2,8 @@ import React from 'react';
 import { Hero, GameState, InventoryItem } from '../types';
 import { XP_TO_LEVEL } from '../data/constants';
 import { cn } from '../lib/utils';
-import { X, Sword, Shield, Heart, Star, Backpack, Map, Activity, Trophy, Clock } from 'lucide-react';
+import { X, Sword, Shield, Heart, Star, Backpack, Map, Activity, Trophy, Clock, Edit3, BookOpen, Wand2, Check } from 'lucide-react';
+import { useState } from 'react';
 import { ItemCard } from './SharedItemCard';
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
   gameState: GameState;
   onClose: () => void;
   unequipItem: (heroId: string, slot: 'weapon' | 'armor') => void;
+  updateHeroStory: (heroId: string, story: string) => void;
 }
 
 const HeroClassLabels: Record<string, string> = {
@@ -18,7 +20,7 @@ const HeroClassLabels: Record<string, string> = {
   rogue: 'Tulák'
 };
 
-export default function HeroDetailModal({ hero, gameState, onClose, unequipItem }: Props) {
+export default function HeroDetailModal({ hero, gameState, onClose, unequipItem, updateHeroStory }: Props) {
   const currentLevelXp = XP_TO_LEVEL[hero.level - 1] || 0;
   const nextLevelXp = XP_TO_LEVEL[hero.level] || hero.xp;
   const xpProgress = nextLevelXp > currentLevelXp ? Math.min(100, Math.max(0, ((hero.xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100)) : 100;
@@ -27,6 +29,38 @@ export default function HeroDetailModal({ hero, gameState, onClose, unequipItem 
   const totalDefense = hero.baseDefense + (hero.equipment.weapon?.defense || 0) + (hero.equipment.armor?.defense || 0);
 
   const history = gameState.completedQuests.filter(q => q.heroId === hero.id).sort((a, b) => b.completedAt - a.completedAt);
+  const [isEditingStory, setIsEditingStory] = useState(false);
+  const [storyText, setStoryText] = useState(hero.story || "");
+
+  const handleSaveStory = () => {
+    updateHeroStory(hero.id, storyText.trim());
+    setIsEditingStory(false);
+  };
+
+  const generateRandomStory = () => {
+    const stories = {
+        warrior: [
+            "Bývalý žoldák z východních plání, který hledá vykoupení v řadách naší gildy. Jeho meč už prolil příliš mnoho nevinné krve, nyní ho vede touha chránit slabé.",
+            "Poslední přeživší z elitní královské gardy. Přísahal pomstu temnému kultu, který zničil jeho pány.",
+            "Tento zjizvený válečník toho moc nenamluví. Raději nechává za sebe mluvit svou zbraň a činy na bojišti."
+        ],
+        mage: [
+            "Vyloučený student arkánní univerzity kvůli nebezpečným experimentům s temnou magií. Nyní hledá starobylé artefakty pro svůj tajný výzkum.",
+            "Génius mezi mágy. Sepsal již několik svitků, které změnily chápání elementální magie. Stále však hledá ultimátní pravdu.",
+            "Jeho mysl je napojena na sféru duchů. Často mluví s neviditelnými bytostmi, což ostatní znepokojuje."
+        ],
+        rogue: [
+            "Vyrůstal v sirotčinci ve stínech velkoměsta. Rychle se naučil, že jediný způsob, jak přežít, je být rychlejší a chytřejší než ostatní.",
+            "Bývalý nájemný vrah s vlastním kodexem cti. Nikdy nezabije nikoho, kdo si to nezaslouží.",
+            "Mistr v otevírání zámků a pastí. Tvrdí o sobě, že dokáže ukrást i měsíc z oblohy, kdyby mu za to někdo dobře zaplatil."
+        ]
+    };
+    
+    const classStories = stories[hero.heroClass as keyof typeof stories] || stories.warrior;
+    const randomStory = classStories[Math.floor(Math.random() * classStories.length)];
+    setStoryText(randomStory);
+    updateHeroStory(hero.id, randomStory);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -110,8 +144,51 @@ export default function HeroDetailModal({ hero, gameState, onClose, unequipItem 
               </div>
             </div>
 
+            {/* Story */}
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
+                  <BookOpen size={14} /> Příběh hrdiny
+                </h3>
+                <div className="flex gap-2">
+                  {isEditingStory ? (
+                    <button onClick={handleSaveStory} className="text-emerald-400 hover:text-emerald-300 transition-colors" title="Uložit">
+                      <Check size={14} />
+                    </button>
+                  ) : (
+                    <>
+                      <button onClick={generateRandomStory} className="text-blue-400 hover:text-blue-300 transition-colors" title="Generovat náhodný příběh">
+                        <Wand2 size={14} />
+                      </button>
+                      <button onClick={() => setIsEditingStory(true)} className="text-amber-400 hover:text-amber-300 transition-colors" title="Upravit příběh">
+                        <Edit3 size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              {isEditingStory ? (
+                <textarea
+                  value={storyText}
+                  onChange={(e) => setStoryText(e.target.value)}
+                  placeholder="Napište příběh hrdiny..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-300 focus:outline-none focus:border-amber-500/50 transition-colors min-h-[80px] resize-none"
+                  autoFocus
+                />
+              ) : (
+                <div className="text-xs text-slate-400 italic bg-slate-900/50 p-3 rounded-lg min-h-[80px] border border-slate-800 flex items-center justify-center">
+                  {hero.story ? (
+                    <span className="w-full h-full text-left not-italic text-slate-300 leading-relaxed">{hero.story}</span>
+                  ) : (
+                    "Hrdina zatím nemá žádný příběh..."
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Inventory / Equipment */}
-            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 flex-1">
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
               <h3 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2 mb-4">
                 <Backpack size={14} /> Vybavení hrdiny
               </h3>

@@ -35,6 +35,7 @@ export interface Hero {
   status: 'idle' | 'questing' | 'dead';
   activeQuestId: string | null;
   questStartTime: number | null;
+  story?: string;
 }
 
 export interface Quest {

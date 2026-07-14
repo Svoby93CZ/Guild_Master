@@ -13,7 +13,7 @@ import {
   Info, 
   CheckCircle2, 
   Flame,
-  Wrench,
+  Wrench, Zap,
   Search,
   Filter
 } from 'lucide-react';
@@ -293,6 +293,119 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
     return true;
   };
 
+
+  const getMissingMaterials = (recipe: CraftingRecipe) => {
+    const missing: Partial<MaterialsInventory> = {};
+    for (const [key, amount] of Object.entries(recipe.costMaterials)) {
+      const mKey = key as keyof MaterialsInventory;
+      const have = materialsInventory[mKey] || 0;
+      if (have < (amount || 0)) {
+        missing[mKey] = (amount || 0) - have;
+      }
+    }
+    return missing;
+  };
+
+  const getQuickCraftPlan = (recipe: CraftingRecipe) => {
+    const missing = getMissingMaterials(recipe);
+    if (Object.keys(missing).length === 0) return null;
+
+    let extraGoldNeeded = 0;
+    const extraRawNeeded: Partial<MaterialsInventory> = {};
+    const craftActions: { recipe: IntermediateMaterialRecipe, multiplier: number }[] = [];
+
+    let possible = true;
+
+    for (const [key, amountStr] of Object.entries(missing)) {
+      const mKey = key as keyof MaterialsInventory;
+      const amount = amountStr || 0;
+      if (amount <= 0) continue;
+
+      const intRecipe = INTERMEDIATE_RECIPES.find(r => r.key === mKey);
+      if (!intRecipe) {
+        possible = false;
+        break;
+      }
+
+      const multiplier = Math.ceil(amount / intRecipe.yieldCount);
+      
+      extraGoldNeeded += intRecipe.costGold * multiplier;
+      craftActions.push({ recipe: intRecipe, multiplier });
+
+      for (const [rawKey, rawAmount] of Object.entries(intRecipe.costRaw)) {
+        const rKey = rawKey as keyof MaterialsInventory;
+        extraRawNeeded[rKey] = (extraRawNeeded[rKey] || 0) + (rawAmount || 0) * multiplier;
+      }
+    }
+
+    if (!possible) return null;
+
+    for (const [rawKey, amount] of Object.entries(extraRawNeeded)) {
+       const rKey = rawKey as keyof MaterialsInventory;
+       if ((materialsInventory[rKey] || 0) < (amount || 0)) {
+           possible = false;
+           break;
+       }
+    }
+
+    if (gameState.gold < recipe.costGold + extraGoldNeeded) {
+        possible = false;
+    }
+
+    if (!possible) return null;
+
+    return {
+      craftActions,
+      extraGoldNeeded,
+      extraRawNeeded
+    };
+  };
+
+  const handleQuickCraft = (recipe: CraftingRecipe, plan: ReturnType<typeof getQuickCraftPlan>) => {
+    if (!plan) return;
+    if (craftingProgress !== null) return;
+    setCraftingProgress(0);
+    const interval = setInterval(() => {
+      setCraftingProgress(prev => {
+        if (prev === null) {
+          clearInterval(interval);
+          return null;
+        }
+        if (prev >= 100) {
+          clearInterval(interval);
+          
+          for (const action of plan.craftActions) {
+            const multipliedCostRaw = Object.fromEntries(
+              Object.entries(action.recipe.costRaw).map(([k, v]) => [k, (v as number) * action.multiplier])
+            ) as Partial<MaterialsInventory>;
+
+            craftMaterial(
+              action.recipe.key,
+              multipliedCostRaw,
+              action.recipe.costGold * action.multiplier,
+              action.recipe.yieldCount * action.multiplier
+            );
+          }
+
+          craftItem(
+            recipe.name,
+            recipe.type,
+            recipe.rarity,
+            recipe.attack,
+            recipe.defense,
+            recipe.value,
+            recipe.costMaterials,
+            recipe.costGold
+          );
+          setShowSuccessTick(true);
+          setTimeout(() => setShowSuccessTick(false), 2000);
+          return null;
+        }
+        return prev + 10;
+      });
+    }, 100);
+  };
+
   const handleCraft = (recipe: CraftingRecipe) => {
     if (!canAffordRecipe(recipe)) return;
     if (craftingProgress !== null) return;
@@ -353,7 +466,12 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
     }, 80);
   };
 
+
+  const isAffordable = selectedRecipe ? canAffordRecipe(selectedRecipe) : false;
+  const quickCraftPlan = (selectedRecipe && !isAffordable) ? getQuickCraftPlan(selectedRecipe) : null;
+
   return (
+
     <div className="bg-slate-800/40 rounded-2xl border border-slate-700 p-5 flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4 shrink-0">
@@ -764,18 +882,35 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
                       <span className="text-[9px] text-slate-500 font-mono">Předmět vložen do truhly gildy</span>
                     </div>
                   ) : (
-                    <button
-                      disabled={!canAffordRecipe(selectedRecipe)}
-                      onClick={() => handleCraft(selectedRecipe)}
-                      className={cn(
-                        "w-full py-3 px-4 font-black uppercase tracking-wider text-xs rounded-xl border transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md",
-                        canAffordRecipe(selectedRecipe)
-                          ? "bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-600 active:translate-y-0.5 active:shadow-none shadow-[0_4px_0_#b45309]"
-                          : "bg-slate-800 text-slate-600 border-slate-800 cursor-not-allowed opacity-50"
+                    <>
+                      {isAffordable ? (
+                        <button
+                          onClick={() => handleCraft(selectedRecipe)}
+                          className="w-full py-3 px-4 font-black uppercase tracking-wider text-xs rounded-xl border transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-600 active:translate-y-0.5 active:shadow-none shadow-[0_4px_0_#b45309]"
+                        >
+                          <Wrench size={14} /> Vykovat výbavu
+                        </button>
+                      ) : quickCraftPlan ? (
+                        <button
+                          onClick={() => handleQuickCraft(selectedRecipe, quickCraftPlan)}
+                          className="w-full py-3 px-4 font-black uppercase tracking-wider text-xs rounded-xl border transition-all flex flex-col items-center justify-center gap-1 cursor-pointer shadow-md bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-700 active:translate-y-0.5 active:shadow-none shadow-[0_4px_0_#4338ca]"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Zap size={14} className="text-amber-300" /> Rychlé vykování
+                          </div>
+                          <div className="text-[9px] font-normal opacity-80 normal-case flex items-center gap-1 text-indigo-200">
+                            (Vyrobí chybějící suroviny: celkem +{quickCraftPlan.extraGoldNeeded}g)
+                          </div>
+                        </button>
+                      ) : (
+                        <button
+                          disabled
+                          className="w-full py-3 px-4 font-black uppercase tracking-wider text-xs rounded-xl border transition-all flex items-center justify-center gap-2 cursor-not-allowed shadow-md bg-slate-800 text-slate-600 border-slate-800 opacity-50"
+                        >
+                          <Wrench size={14} /> Vykovat výbavu
+                        </button>
                       )}
-                    >
-                      <Wrench size={14} /> Vykovat výbavu
-                    </button>
+                    </>
                   )}
 
                   <div className="flex gap-2 items-center justify-center text-[10px] font-bold text-slate-500 text-center">

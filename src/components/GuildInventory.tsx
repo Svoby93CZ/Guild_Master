@@ -41,7 +41,7 @@ const HeroClassLabels: Record<string, string> = {
 };
 
 type TabType = 'all' | 'weapons' | 'armor' | 'materials';
-type SortKey = 'name' | 'value' | 'rarity' | 'attack' | 'defense';
+type SortKey = 'name' | 'value' | 'rarity' | 'attack' | 'defense' | 'type';
 type SortOrder = 'asc' | 'desc';
 
 const RarityLabels: Record<ItemRarity, string> = {
@@ -133,6 +133,8 @@ export default function GuildInventory({
         comparison = a.attack - b.attack;
       } else if (sortBy === 'defense') {
         comparison = a.defense - b.defense;
+      } else if (sortBy === 'type') {
+        comparison = a.type.localeCompare(b.type);
       }
 
       return sortOrder === 'asc' ? comparison : -comparison;
@@ -280,6 +282,37 @@ export default function GuildInventory({
                 </select>
               </div>
 
+              {/* Smart Sort */}
+              <div className="flex border border-slate-700/80 bg-slate-900 rounded-xl p-1 shrink-0 items-center">
+                <button
+                  onClick={() => {
+                     if (sortBy === 'rarity') {
+                       setSortBy('type');
+                       setSortOrder('asc');
+                     } else {
+                       setSortBy('rarity');
+                       setSortOrder('desc');
+                     }
+                  }}
+                  className="px-2 rounded cursor-pointer transition-colors text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                  title="Chytré řazení (Rarita / Typ)"
+                >
+                  <Sparkles size={12} /> Chytré řazení
+                </button>
+              </div>
+              
+              {/* Quick Sell */}
+              {commonItemsCount > 0 && (
+                <div className="flex border border-slate-700/80 bg-slate-900 rounded-xl p-1 shrink-0 items-center">
+                  <button
+                    onClick={handleBulkSellCommon}
+                    className="px-2 rounded cursor-pointer transition-colors text-[10px] font-black uppercase text-amber-500 hover:text-amber-400 flex items-center gap-1"
+                    title={`Prodat nepotřebné běžné předměty (${commonItemsCount} ks)`}
+                  >
+                    <Coins size={12} /> Rychlý prodej
+                  </button>
+                </div>
+              )}
               {/* View mode toggle */}
               <div className="flex border border-slate-700/80 bg-slate-900 rounded-xl p-1 shrink-0">
                 <button
