@@ -21,6 +21,7 @@ export interface Hero {
   id: string;
   name: string;
   heroClass: HeroClass;
+  icon?: string;
   level: number;
   xp: number;
   maxHp: number;
@@ -70,12 +71,25 @@ export interface CompletedQuest {
   xpEarned: number;
   goldEarned: number;
   materialsEarned: number;
+  manaCrystalsEarned?: number;
   lootItem?: InventoryItem;
+}
+
+export interface MaterialsInventory {
+  ironOre: number;
+  rawHide: number;
+  oakWood: number;
+  manaCrystal: number;
+  ironBar: number;
+  leatherStrap: number;
+  steelNail: number;
+  processedPlank: number;
 }
 
 export interface GameState {
   gold: number;
   materials: number;
+  materialsInventory: MaterialsInventory;
   heroes: Hero[];
   inventory: InventoryItem[];
   availableQuests: Quest[];
