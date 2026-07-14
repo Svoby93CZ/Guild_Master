@@ -230,7 +230,7 @@ export function useGameEngine() {
       let newBaseDefense = hero.baseDefense;
       let levelUpMsg = '';
 
-      if (newLevel < XP_TO_LEVEL.length - 1 && newXp >= XP_TO_LEVEL[newLevel]) {
+      while (newLevel < XP_TO_LEVEL.length && newXp >= XP_TO_LEVEL[newLevel]) {
         newLevel++;
         newMaxHp += 10;
         newBaseAttack += 3;
@@ -562,10 +562,25 @@ export function useGameEngine() {
     return () => clearInterval(interval);
   }, [gameState.heroes, gameState.availableQuests, completeQuest]);
 
+
+  const resetGame = useCallback(() => {
+    if (window.confirm("Opravdu chcete vymazat veškerý postup? Hra se restartuje do výchozího nastavení.")) {
+      localStorage.removeItem('guild_master_save');
+      window.location.reload();
+    }
+  }, []);
+
+  const forceSave = useCallback(() => {
+    localStorage.setItem('guild_master_save', JSON.stringify(gameState));
+    alert("Hra byla úspěšně uložena!");
+  }, [gameState]);
+
   return {
     gameState,
     equipItem,
     unequipItem,
+    resetGame,
+    forceSave,
     startQuest,
     healHero,
     sellItem,

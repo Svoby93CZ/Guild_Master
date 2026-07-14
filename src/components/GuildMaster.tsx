@@ -6,12 +6,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import GuildInventory from './GuildInventory';
 import GuildForge from './GuildForge';
-import { Shield, Sword, Heart, Star, Backpack, Pickaxe, Coins, Beaker, Zap, ShieldAlert, Crosshair, Map, Activity, Coins as CoinsIcon, Tent, UserRound, CheckCircle2, XCircle, Trophy, Sparkles, Plus, Trash2, Edit3, X, Check, BookOpen, Hammer, Gem, User, Ghost, Skull, Crown, Flame, Bird, Eye } from 'lucide-react';
+import { Shield, Sword, Heart, Star, Backpack, Pickaxe, Coins, Beaker, Zap, ShieldAlert, Crosshair, Map, Activity, Coins as CoinsIcon, Tent, UserRound, CheckCircle2, XCircle, Trophy, Sparkles, Plus, Trash2, Edit3, X, Check, BookOpen, Hammer, Gem, User, Ghost, Skull, Crown, Flame, Bird, Eye, Save, RotateCcw } from 'lucide-react';
 import { ItemCard, RarityClasses } from './SharedItemCard';
 import HeroDetailModal from './HeroDetailModal';
 
 interface Props {
   gameState: GameState;
+  resetGame: () => void;
+  forceSave: () => void;
   equipItem: (heroId: string, itemInstanceId: string, slot: 'weapon' | 'armor') => void;
   unequipItem: (heroId: string, slot: 'weapon' | 'armor') => void;
   startQuest: (heroId: string, questId: string) => void;
@@ -60,7 +62,7 @@ const getRandomName = () => {
 const HERO_ICONS: Record<string, React.ElementType> = { user: User, ghost: Ghost, skull: Skull, crown: Crown, flame: Flame, bird: Bird
 };
 
-export default function GuildMaster({ gameState, equipItem, unequipItem, startQuest, healHero, sellItem, createHero, deleteHero, renameHero, updateHeroStory, craftItem, craftMaterial }: Props) {
+export default function GuildMaster({ gameState, equipItem, unequipItem, startQuest, healHero, sellItem, createHero, deleteHero, renameHero, updateHeroStory, craftItem, craftMaterial, resetGame, forceSave }: Props) {
   const { onDragStart, onDragOver } = useDragAndDrop();
   const [activeLogTab, setActiveLogTab] = useState<'journal' | 'questHistory'>('journal');
   const [centerTab, setCenterTab] = useState<'quests' | 'forge' | 'inventory' | 'chronicles'>('quests');
@@ -96,9 +98,9 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
   };
 
   return (
-    <div className="h-full min-h-full bg-[#0f172a] text-slate-100 font-sans flex flex-col overflow-hidden">
+    <div className="h-full min-h-full texture-stone text-slate-200 font-sans flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="h-16 flex items-center justify-between px-4 @3xl:px-8 bg-[#1e293b] border-b border-slate-700 shadow-xl shrink-0">
+      <header className="h-16 flex items-center justify-between px-4 @3xl:px-8 gothic-panel texture-noise shadow-xl shrink-0 z-10">
         <div className="flex items-center gap-2 @3xl:gap-4">
           <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.4)]">
             <Tent className="w-6 h-6 text-slate-900" />
@@ -106,6 +108,14 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
           <h1 className="text-2xl font-black tracking-tighter uppercase text-amber-400">Guild Master</h1>
         </div>
         <div className="flex gap-3 @3xl:gap-6 items-center">
+          <div className="flex items-center gap-1">
+            <button onClick={forceSave} className="p-2 rounded-full hover:bg-indigo-500/20 text-indigo-400 transition-colors" title="Uložit hru">
+              <Save size={18} />
+            </button>
+            <button onClick={resetGame} className="p-2 rounded-full hover:bg-rose-500/20 text-rose-400 transition-colors" title="Smazat postup">
+              <RotateCcw size={18} />
+            </button>
+          </div>
           <div className="flex items-center gap-2 bg-slate-800/50 px-4 py-1.5 rounded-full border border-slate-700">
             <span className="text-amber-400 font-bold">{gameState.gold}</span>
             <span className="text-xs uppercase text-slate-400 font-bold">Zlato</span>
@@ -122,7 +132,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
         {/* Left Column: Heroes */}
         <aside className="w-full @4xl:w-80 flex flex-col gap-4 @4xl:overflow-hidden shrink-0">
           <div className="flex justify-between items-end mb-2 shrink-0">
-            <h2 className="text-sm font-black uppercase text-slate-400 tracking-widest">Aktivní Hrdinové</h2>
+            <h2 className="text-sm font-gothic font-bold uppercase text-slate-300 tracking-widest">Aktivní Hrdinové</h2>
             <span className="text-xs text-amber-500 font-bold">{gameState.heroes.length} Hrdinů</span>
           </div>
 
@@ -135,7 +145,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                 }
                 setShowRecruitForm(!showRecruitForm);
               }}
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-black uppercase tracking-wider bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-slate-950 rounded-lg transition-all shadow-md cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 text-[13px] font-gothic font-bold uppercase tracking-widest bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-slate-950 rounded-lg transition-all shadow-md cursor-pointer"
             >
               <Plus size={14} /> Najmout hrdinu (50g)
             </button>
@@ -324,7 +334,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={cn("font-bold truncate max-w-[110px]", textNameClass)}>{hero.name}</span>
                             {!isQuesting && (
-                              <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center gap-1 opacity-100 @sm:opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button 
                                   onClick={() => setSelectedHeroDetailId(hero.id)}
                                   title="Detail hrdiny"
@@ -464,7 +474,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
               <button
                 onClick={() => setCenterTab('quests')}
                 className={cn(
-                  "flex-1 py-2 px-4 rounded-lg font-black uppercase text-xs tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-2",
+                  "flex-1 py-2 px-4 rounded-lg font-gothic font-bold uppercase text-xs tracking-widest transition-all duration-200 cursor-pointer flex items-center justify-center gap-2",
                   centerTab === 'quests'
                     ? "bg-indigo-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)]"
                     : "text-slate-400 hover:text-slate-200"
@@ -475,7 +485,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
               <button
                 onClick={() => setCenterTab('forge')}
                 className={cn(
-                  "flex-1 py-2 px-4 rounded-lg font-black uppercase text-xs tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-2",
+                  "flex-1 py-2 px-4 rounded-lg font-gothic font-bold uppercase text-xs tracking-widest transition-all duration-200 cursor-pointer flex items-center justify-center gap-2",
                   centerTab === 'forge'
                     ? "bg-amber-500 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
                     : "text-slate-400 hover:text-slate-200"
@@ -486,7 +496,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
               <button
                 onClick={() => setCenterTab('inventory')}
                 className={cn(
-                  "flex-1 py-2 px-4 rounded-lg font-black uppercase text-xs tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-2",
+                  "flex-1 py-2 px-4 rounded-lg font-gothic font-bold uppercase text-xs tracking-widest transition-all duration-200 cursor-pointer flex items-center justify-center gap-2",
                   centerTab === 'inventory'
                     ? "bg-emerald-600 text-white shadow-[0_0_15px_rgba(5,150,105,0.4)]"
                     : "text-slate-400 hover:text-slate-200"
@@ -497,7 +507,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
               <button
                 onClick={() => setCenterTab('chronicles')}
                 className={cn(
-                  "flex-1 py-2 px-4 rounded-lg font-black uppercase text-xs tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-2",
+                  "flex-1 py-2 px-4 rounded-lg font-gothic font-bold uppercase text-xs tracking-widest transition-all duration-200 cursor-pointer flex items-center justify-center gap-2",
                   centerTab === 'chronicles'
                     ? "bg-fuchsia-600 text-white shadow-[0_0_15px_rgba(192,38,211,0.4)]"
                     : "text-slate-400 hover:text-slate-200"
@@ -508,7 +518,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
             </div>
 
             {centerTab === 'quests' ? (
-              <section className="flex-1 bg-slate-800/40 rounded-2xl border border-slate-700 p-6 flex flex-col relative overflow-hidden">
+              <section className="flex-1 gothic-panel rounded-xl border border-[#2a2420] p-6 flex flex-col relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4">
                   <span className="px-3 py-1 bg-indigo-500 text-white text-[10px] font-black tracking-widest uppercase rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]">Vývěska</span>
                 </div>
@@ -517,9 +527,9 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                 
                 <div className="space-y-4 overflow-y-auto custom-scrollbar pr-2 pb-4">
                   {gameState.availableQuests.map(quest => (
-                    <div key={quest.id} className="bg-slate-900/80 p-5 rounded-xl border border-slate-700 flex flex-col xl:flex-row gap-6 justify-between items-start">
+                    <div key={quest.id} className="gothic-card p-5 rounded-xl flex flex-col @xl:flex-row gap-6 justify-between items-start">
                       <div className="flex-1">
-                        <h4 className="font-black text-white text-xl uppercase italic tracking-tighter flex items-center gap-3">
+                        <h4 className="font-gothic font-bold text-amber-100 text-xl tracking-wide flex items-center gap-3 drop-shadow-md">
                           {quest.name}
                           <span className="text-[10px] not-italic tracking-widest bg-slate-800 text-amber-500 px-2 py-0.5 rounded border border-amber-500/30">
                             Úroveň {quest.levelReq}
@@ -542,8 +552,8 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                         </div>
                       </div>
                       
-                      <div className="flex flex-col gap-2 min-w-[140px] xl:w-48">
-                        <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1 text-center xl:text-left">Vyslat Hrdinu</p>
+                      <div className="flex flex-col gap-2 min-w-[140px] @xl:w-48">
+                        <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1 text-center @xl:text-left">Vyslat Hrdinu</p>
                         {gameState.heroes.filter(h => h.status === 'idle' && h.level >= quest.levelReq).map(hero => (
                           <button
                             key={hero.id}
@@ -554,7 +564,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                           </button>
                         ))}
                         {gameState.heroes.filter(h => h.status === 'idle' && h.level >= quest.levelReq).length === 0 && (
-                          <div className="text-xs text-slate-600 font-bold uppercase text-center xl:text-left border-2 border-dashed border-slate-700 p-2 rounded-lg">
+                          <div className="text-xs text-slate-600 font-bold uppercase text-center @xl:text-left border-2 border-dashed border-slate-700 p-2 rounded-lg">
                             Žádný hrdina
                           </div>
                         )}
@@ -581,7 +591,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
               </div>
             ) : (
               /* Logs & Quest History */
-              <div className="flex-1 flex flex-col gap-4 overflow-hidden h-full bg-slate-800/40 rounded-2xl border border-slate-700 p-5">
+              <div className="flex-1 flex flex-col gap-4 overflow-hidden h-full gothic-panel rounded-xl border border-[#2a2420] p-5">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2 shrink-0">
                   <div className="flex gap-4">
                     <button 

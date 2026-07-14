@@ -170,11 +170,11 @@ export default function GuildInventory({
   }, [gameState.inventory]);
 
   return (
-    <div className="bg-slate-800/40 rounded-2xl border border-slate-700 p-5 flex flex-col h-full overflow-hidden">
+    <div className="gothic-panel rounded-xl p-5 flex flex-col h-full overflow-hidden">
       {/* Header and Quick Stats */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4 shrink-0">
+      <div className="flex flex-col @md:flex-row @md:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4 shrink-0">
         <div>
-          <h2 className="text-sm font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+          <h2 className="text-[15px] font-gothic font-bold uppercase text-amber-200 drop-shadow-md tracking-widest flex items-center gap-2">
             <Gem size={16} className="text-amber-500 animate-pulse" /> Sklad a Suroviny Gildy
           </h2>
           <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase">
@@ -206,7 +206,7 @@ export default function GuildInventory({
           <button
             onClick={() => setActiveTab('all')}
             className={cn(
-              "px-4 py-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer whitespace-nowrap",
+              "px-4 py-2 text-[13px] font-gothic font-bold uppercase tracking-widest border-b-2 transition-all cursor-pointer whitespace-nowrap",
               activeTab === 'all' 
                 ? "text-amber-400 border-amber-400" 
                 : "text-slate-500 border-transparent hover:text-slate-300"
@@ -217,7 +217,7 @@ export default function GuildInventory({
           <button
             onClick={() => setActiveTab('weapons')}
             className={cn(
-              "px-4 py-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap",
+              "px-4 py-2 text-[13px] font-gothic font-bold uppercase tracking-widest border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap",
               activeTab === 'weapons' 
                 ? "text-amber-400 border-amber-400" 
                 : "text-slate-500 border-transparent hover:text-slate-300"
@@ -228,7 +228,7 @@ export default function GuildInventory({
           <button
             onClick={() => setActiveTab('armor')}
             className={cn(
-              "px-4 py-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap",
+              "px-4 py-2 text-[13px] font-gothic font-bold uppercase tracking-widest border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap",
               activeTab === 'armor' 
                 ? "text-amber-400 border-amber-400" 
                 : "text-slate-500 border-transparent hover:text-slate-300"
@@ -239,7 +239,7 @@ export default function GuildInventory({
           <button
             onClick={() => setActiveTab('materials')}
             className={cn(
-              "px-4 py-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap",
+              "px-4 py-2 text-[13px] font-gothic font-bold uppercase tracking-widest border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap",
               activeTab === 'materials' 
                 ? "text-amber-400 border-amber-400" 
                 : "text-slate-500 border-transparent hover:text-slate-300"
@@ -251,7 +251,7 @@ export default function GuildInventory({
 
         {/* Filters and search (hidden for materials tab) */}
         {activeTab !== 'materials' && (
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col @sm:flex-row gap-2">
             {/* Search */}
             <div className="relative flex-1">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -393,7 +393,7 @@ export default function GuildInventory({
         {activeTab === 'materials' ? (
           /* Materials View */
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 @sm:grid-cols-2 gap-4">
               
               {/* Construction wood */}
               <div className="bg-slate-900/60 border border-slate-700/60 p-4 rounded-xl flex gap-4 items-center">
@@ -464,7 +464,7 @@ export default function GuildInventory({
             ) : viewMode === 'grid' ? (
               /* Grid Layout */
               <div 
-                className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 content-start pb-4"
+                className="grid grid-cols-4 @sm:grid-cols-6 @md:grid-cols-8 gap-3 content-start pb-4"
                 onDragOver={onDragOver}
                 onDrop={handleInventoryDrop}
               >
@@ -576,7 +576,7 @@ export default function GuildInventory({
 
       {/* Equip Hero Selector Modal */}
       {equippingItemId && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 shadow-2xl relative animate-in fade-in zoom-in duration-200">
             <button 
               onClick={() => setEquippingItemId(null)}

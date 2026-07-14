@@ -63,7 +63,7 @@ export default function HeroDetailModal({ hero, gameState, onClose, unequipItem,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         
         {/* Header */}
@@ -91,10 +91,10 @@ export default function HeroDetailModal({ hero, gameState, onClose, unequipItem,
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto p-6 flex flex-col md:flex-row gap-6">
+        <div className="flex-1 overflow-auto p-6 flex flex-col @md:flex-row gap-6">
           
           {/* Left Column: Stats & Inventory */}
-          <div className="flex flex-col gap-6 w-full md:w-1/3">
+          <div className="flex flex-col gap-6 w-full @md:w-1/3">
             
             {/* Stats Card */}
             <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 space-y-4">
@@ -119,7 +119,7 @@ export default function HeroDetailModal({ hero, gameState, onClose, unequipItem,
                 <div>
                   <div className="flex justify-between text-xs font-bold mb-1">
                     <span className="text-blue-400">Zkušenosti (XP)</span>
-                    <span className="text-blue-400">{hero.xp} / {nextLevelXp}</span>
+                    <span className="text-blue-400">{hero.xp} / {hero.level >= XP_TO_LEVEL.length ? 'MAX' : nextLevelXp}</span>
                   </div>
                   <div className="h-2 bg-slate-950 rounded-full overflow-hidden">
                     <div 

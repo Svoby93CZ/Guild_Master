@@ -472,11 +472,11 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
 
   return (
 
-    <div className="bg-slate-800/40 rounded-2xl border border-slate-700 p-5 flex flex-col h-full overflow-hidden">
+    <div className="gothic-panel rounded-xl p-5 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4 shrink-0">
+      <div className="flex flex-col @md:flex-row @md:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4 shrink-0">
         <div>
-          <h2 className="text-sm font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+          <h2 className="text-[15px] font-gothic font-bold uppercase text-amber-200 drop-shadow-md tracking-widest flex items-center gap-2">
             <Hammer size={16} className="text-amber-500 animate-pulse" /> Kovářská dílna gildy
           </h2>
           <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase">
@@ -502,7 +502,7 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
         <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-wider mb-2 flex items-center gap-1">
           📦 Sklad surovin a polotovarů
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
+        <div className="grid grid-cols-2 @sm:grid-cols-4 @md:grid-cols-8 gap-2">
           {/* Raw */}
           <div className="bg-slate-950/40 border border-slate-800/80 rounded-lg p-1.5 flex flex-col items-center justify-center text-center">
             <span className="text-lg">⛏️</span>
@@ -554,7 +554,7 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
         <button
           onClick={() => setActiveSubTab('equipment')}
           className={cn(
-            "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5",
+            "flex-1 py-2 text-[13px] font-gothic font-bold uppercase tracking-widest rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5",
             activeSubTab === 'equipment' 
               ? "bg-amber-500 text-slate-950 shadow-md" 
               : "text-slate-400 hover:text-slate-200"
@@ -565,7 +565,7 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
         <button
           onClick={() => setActiveSubTab('processing')}
           className={cn(
-            "flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5",
+            "flex-1 py-2 text-[13px] font-gothic font-bold uppercase tracking-widest rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5",
             activeSubTab === 'processing' 
               ? "bg-amber-500 text-slate-950 shadow-md" 
               : "text-slate-400 hover:text-slate-200"
@@ -576,7 +576,7 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
       </div>
 
       {/* Main split: Left list, Right detail */}
-      <div className="flex-1 flex flex-col md:flex-row gap-5 overflow-hidden">
+      <div className="flex-1 flex flex-col @md:flex-row gap-5 overflow-hidden">
         
         {/* Left pane: Seznam */}
         <div className="flex-1 flex flex-col gap-3 overflow-hidden">
@@ -584,7 +584,7 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
             /* EQUIPMENT TAB LEFT SIDE */
             <>
               {/* Controls */}
-              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+              <div className="flex flex-col @sm:flex-row gap-2 shrink-0">
                 {/* Search */}
                 <div className="relative flex-1">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -756,7 +756,7 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
         </div>
 
         {/* Right pane: Detail a zahájení výroby */}
-        <div className="w-full md:w-80 shrink-0 bg-slate-900/60 rounded-xl border border-slate-800 p-4 flex flex-col justify-between overflow-hidden">
+        <div className="w-full @md:w-80 shrink-0 bg-slate-900/60 rounded-xl border border-slate-800 p-4 flex flex-col justify-between overflow-hidden">
           {activeSubTab === 'equipment' ? (
             /* EQUIPMENT DETAIL PANEL */
             selectedRecipe ? (
