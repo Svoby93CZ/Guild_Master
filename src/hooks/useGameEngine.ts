@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { GameState, Hero, InventoryItem, LogEntry, Quest, CompletedQuest, HeroClass, ItemRarity, MaterialsInventory } from '../types';
-import { INITIAL_HEROES, INITIAL_QUESTS, ITEM_TEMPLATES } from '../data/constants';
+import { INITIAL_HEROES, INITIAL_QUESTS, ITEM_TEMPLATES, XP_TO_LEVEL } from '../data/constants';
 import { generateId } from '../lib/utils';
-
-const XP_TO_LEVEL = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500];
 
 const DEFAULT_MATERIALS_INVENTORY = {
   ironOre: 8,
@@ -45,6 +43,12 @@ export function useGameEngine() {
         if (!parsed.materialsInventory) {
           parsed.materialsInventory = { ...DEFAULT_MATERIALS_INVENTORY };
         }
+        
+        // Remove hero_2 (Elara) from existing saves if present
+        if (parsed.heroes && Array.isArray(parsed.heroes)) {
+          parsed.heroes = parsed.heroes.filter((h: any) => h.id !== 'hero_2');
+        }
+
         return parsed;
       } catch (e) {
         console.error("Failed to load save", e);
@@ -279,7 +283,7 @@ export function useGameEngine() {
           xp: newXp,
           level: newLevel,
           maxHp: newMaxHp,
-          currentHp: newMaxHp, // Heal on level up/success for simplicity
+          currentHp: levelUpMsg ? newMaxHp : Math.min(newMaxHp, hero.currentHp + Math.floor(newMaxHp * 0.1)),
           baseAttack: newBaseAttack,
           baseDefense: newBaseDefense
         } : h),
@@ -420,15 +424,21 @@ export function useGameEngine() {
         newMaterialsInventory[mKey] -= (val || 0);
       }
       
+      const isMasterwork = Math.random() < 0.15;
+      const finalAttack = isMasterwork && type === 'weapon' ? attack + Math.floor(attack * 0.25) + 3 : attack;
+      const finalDefense = isMasterwork && type === 'armor' ? defense + Math.floor(defense * 0.25) + 3 : defense;
+      const finalValue = isMasterwork ? value * 2 : value;
+      const finalName = isMasterwork ? `✨ Mistrovský: ${name}` : name;
+
       const newItem: InventoryItem = {
         id: `crafted_${generateId()}`,
         instanceId: generateId(),
-        name,
+        name: finalName,
         type,
         rarity,
-        attack,
-        defense,
-        value
+        attack: finalAttack,
+        defense: finalDefense,
+        value: finalValue
       };
       
       const totalMaterialsSum = (Object.keys(newMaterialsInventory) as Array<keyof MaterialsInventory>).reduce((acc, key) => acc + newMaterialsInventory[key], 0);
@@ -441,7 +451,7 @@ export function useGameEngine() {
         inventory: [newItem, ...prev.inventory],
         logs: [{
           id: generateId(),
-          message: `🔨 Kovář: Předmět '${name}' byl úspěšně vykován v dílně za ${costGold} zlata!`,
+          message: isMasterwork ? `✨ Kritický úspěch! Kovář vykoval '${finalName}' za ${costGold} zlata!` : `🔨 Kovář: Předmět '${name}' byl úspěšně vykován v dílně za ${costGold} zlata!`,
           timestamp: Date.now(),
           type: 'success'
         }, ...prev.logs].slice(0, 50)

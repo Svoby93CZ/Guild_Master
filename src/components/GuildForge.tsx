@@ -246,6 +246,7 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
   const [selectedIntermediate, setSelectedIntermediate] = useState<IntermediateMaterialRecipe | null>(INTERMEDIATE_RECIPES[0]);
   const [processingProgress, setProcessingProgress] = useState<number | null>(null);
   const [showProcessingSuccess, setShowProcessingSuccess] = useState(false);
+  const [processMultiplier, setProcessMultiplier] = useState<number>(1);
 
   const materialsInventory = gameState.materialsInventory || {
     ironOre: 0, rawHide: 0, oakWood: 0, manaCrystal: 0,
@@ -281,11 +282,11 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
     return true;
   };
 
-  const canAffordIntermediate = (recipe: IntermediateMaterialRecipe) => {
-    if (gameState.gold < recipe.costGold) return false;
+  const canAffordIntermediate = (recipe: IntermediateMaterialRecipe, multiplier: number = 1) => {
+    if (gameState.gold < recipe.costGold * multiplier) return false;
     for (const [key, amount] of Object.entries(recipe.costRaw)) {
       const mKey = key as keyof MaterialsInventory;
-      if ((materialsInventory[mKey] || 0) < (amount || 0)) {
+      if ((materialsInventory[mKey] || 0) < (amount || 0) * multiplier) {
         return false;
       }
     }
@@ -325,7 +326,7 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
   };
 
   const handleProcess = (recipe: IntermediateMaterialRecipe) => {
-    if (!canAffordIntermediate(recipe)) return;
+    if (!canAffordIntermediate(recipe, processMultiplier)) return;
     if (processingProgress !== null) return;
 
     setProcessingProgress(0);
@@ -337,8 +338,13 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
         }
         if (prev >= 100) {
           clearInterval(interval);
-          craftMaterial(recipe.key, recipe.costRaw, recipe.costGold, recipe.yieldCount);
+          const multipliedCostRaw = Object.fromEntries(
+            Object.entries(recipe.costRaw).map(([k, v]) => [k, (v || 0) * processMultiplier])
+          ) as Partial<MaterialsInventory>;
+          
+          craftMaterial(recipe.key, multipliedCostRaw, recipe.costGold * processMultiplier, recipe.yieldCount * processMultiplier);
           setShowProcessingSuccess(true);
+          setProcessMultiplier(1);
           setTimeout(() => setShowProcessingSuccess(false), 1500);
           return null;
         }
@@ -814,16 +820,29 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
 
                   {/* Materials Breakdown Details */}
                   <div className="bg-slate-950/20 p-3 rounded-lg border border-slate-800/80">
-                    <h5 className="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-2">Potřebné základní suroviny</h5>
+                    <div className="flex justify-between items-center mb-2">
+                      <h5 className="text-[9px] font-black uppercase tracking-wider text-slate-400">Potřebné suroviny</h5>
+                      <div className="flex items-center gap-1 bg-slate-900 rounded p-0.5 border border-slate-700">
+                        <button 
+                          onClick={() => setProcessMultiplier(Math.max(1, processMultiplier - 1))}
+                          className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-[10px] text-slate-300 transition-colors"
+                        >-</button>
+                        <span className="text-[10px] font-mono font-bold text-amber-400 px-1">{processMultiplier}x</span>
+                        <button 
+                          onClick={() => setProcessMultiplier(processMultiplier + 1)}
+                          className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-[10px] text-slate-300 transition-colors"
+                        >+</button>
+                      </div>
+                    </div>
                     
                     <div className="space-y-2 font-mono text-xs font-bold">
                       {/* Gold requirement */}
                       <div className="flex justify-between items-center text-slate-300">
                         <span className="flex items-center gap-1.5"><Coins size={12} className="text-amber-400" /> Poplatek kováři:</span>
                         <span className={cn(
-                          gameState.gold >= selectedIntermediate.costGold ? "text-emerald-400" : "text-rose-400"
+                          gameState.gold >= selectedIntermediate.costGold * processMultiplier ? "text-emerald-400" : "text-rose-400"
                         )}>
-                          {selectedIntermediate.costGold} / {gameState.gold}g
+                          {selectedIntermediate.costGold * processMultiplier} / {gameState.gold}g
                         </span>
                       </div>
 
@@ -832,7 +851,8 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
                         {Object.entries(selectedIntermediate.costRaw).map(([rawKey, amount]) => {
                           const rKey = rawKey as keyof MaterialsInventory;
                           const hasAmount = (materialsInventory[rKey] || 0);
-                          const isEnough = hasAmount >= ((amount as number) || 0);
+                          const totalNeeded = ((amount as number) || 0) * processMultiplier;
+                          const isEnough = hasAmount >= totalNeeded;
                           
                           const rawFullNames: Record<string, string> = {
                             ironOre: '⛏️ Železná ruda',
@@ -845,7 +865,7 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
                             <div key={rawKey} className="flex justify-between items-center text-slate-300">
                               <span>{rawFullNames[rawKey] || rawKey}:</span>
                               <span className={isEnough ? "text-emerald-400" : "text-rose-400"}>
-                                {amount} / {hasAmount} ks
+                                {totalNeeded} / {hasAmount} ks
                               </span>
                             </div>
                           );
@@ -878,16 +898,16 @@ export default function GuildForge({ gameState, craftItem, craftMaterial }: Prop
                     </div>
                   ) : (
                     <button
-                      disabled={!canAffordIntermediate(selectedIntermediate)}
+                      disabled={!canAffordIntermediate(selectedIntermediate, processMultiplier)}
                       onClick={() => handleProcess(selectedIntermediate)}
                       className={cn(
                         "w-full py-3 px-4 font-black uppercase tracking-wider text-xs rounded-xl border transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md",
-                        canAffordIntermediate(selectedIntermediate)
+                        canAffordIntermediate(selectedIntermediate, processMultiplier)
                           ? "bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-600 active:translate-y-0.5 active:shadow-none shadow-[0_4px_0_#b45309]"
                           : "bg-slate-800 text-slate-600 border-slate-800 cursor-not-allowed opacity-50"
                       )}
                     >
-                      <Wrench size={14} /> Vyrobit {selectedIntermediate.yieldCount}x {selectedIntermediate.name}
+                      <Wrench size={14} /> Vyrobit {selectedIntermediate.yieldCount * processMultiplier}x {selectedIntermediate.name}
                     </button>
                   )}
 

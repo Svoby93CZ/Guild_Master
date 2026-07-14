@@ -141,6 +141,8 @@ export const INITIAL_QUESTS: Quest[] = [
   }
 ];
 
+export const XP_TO_LEVEL = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500];
+
 export const INITIAL_HEROES: Hero[] = [
   {
     id: 'hero_1',
@@ -153,22 +155,6 @@ export const INITIAL_HEROES: Hero[] = [
     currentHp: 50,
     baseAttack: 8,
     baseDefense: 5,
-    equipment: { weapon: null, armor: null },
-    status: 'idle',
-    activeQuestId: null,
-    questStartTime: null
-  },
-  {
-    id: 'hero_2',
-    name: 'Elara',
-    heroClass: 'mage',
-    icon: 'bird',
-    level: 1,
-    xp: 0,
-    maxHp: 30,
-    currentHp: 30,
-    baseAttack: 12,
-    baseDefense: 2,
     equipment: { weapon: null, armor: null },
     status: 'idle',
     activeQuestId: null,

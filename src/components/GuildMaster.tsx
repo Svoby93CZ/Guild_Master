@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { Hero, InventoryItem, Quest, GameState, HeroClass, ItemRarity, MaterialsInventory } from '../types';
+import { XP_TO_LEVEL } from '../data/constants';
 import { cn } from '../lib/utils';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import GuildInventory from './GuildInventory';
 import GuildForge from './GuildForge';
-import { Shield, Sword, Heart, Star, Backpack, Pickaxe, Coins, Beaker, Zap, ShieldAlert, Crosshair, Map, Activity, Coins as CoinsIcon, Tent, UserRound, CheckCircle2, XCircle, Trophy, Sparkles, Plus, Trash2, Edit3, X, Check, BookOpen, Hammer, Gem, User, Ghost, Skull, Crown, Flame, Bird } from 'lucide-react';
+import { Shield, Sword, Heart, Star, Backpack, Pickaxe, Coins, Beaker, Zap, ShieldAlert, Crosshair, Map, Activity, Coins as CoinsIcon, Tent, UserRound, CheckCircle2, XCircle, Trophy, Sparkles, Plus, Trash2, Edit3, X, Check, BookOpen, Hammer, Gem, User, Ghost, Skull, Crown, Flame, Bird, Eye } from 'lucide-react';
+import { ItemCard, RarityClasses } from './SharedItemCard';
+import HeroDetailModal from './HeroDetailModal';
 
 interface Props {
   gameState: GameState;
@@ -13,7 +16,7 @@ interface Props {
   startQuest: (heroId: string, questId: string) => void;
   healHero: (heroId: string) => void;
   sellItem: (itemInstanceId: string) => void;
-  createHero: (name: string, heroClass: HeroClass) => void;
+  createHero: (name: string, heroClass: HeroClass, icon: string) => void;
   deleteHero: (heroId: string) => void;
   renameHero: (heroId: string, newName: string) => void;
   craftItem: (
@@ -34,13 +37,6 @@ interface Props {
   ) => void;
 }
 
-const RarityClasses = {
-  common: 'bg-slate-800 border-2 border-slate-700 text-slate-300',
-  uncommon: 'bg-slate-800 border-2 border-emerald-500/50 ring-2 ring-emerald-500/10 shadow-[inset_0_0_12px_rgba(16,185,129,0.1)] text-emerald-300',
-  rare: 'bg-slate-800 border-2 border-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-300',
-  epic: 'bg-slate-800 border-2 border-purple-500/50 ring-2 ring-purple-500/10 shadow-[inset_0_0_12px_rgba(168,85,247,0.1)] text-purple-300',
-  legendary: 'bg-slate-800 border-2 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] text-amber-300'
-};
 
 const HeroClassLabels: Record<string, string> = {
   warrior: 'Válečník',
@@ -59,47 +55,17 @@ const getRandomName = () => {
   const index = Math.floor(Math.random() * CZECH_FANTASY_NAMES.length);
   return CZECH_FANTASY_NAMES[index];
 };
-
-const ItemCard = ({ item, draggable = true, onDragStart }: { item: InventoryItem, draggable?: boolean, onDragStart?: (e: React.DragEvent) => void }) => {
-  return (
-    <div 
-      draggable={draggable}
-      onDragStart={onDragStart}
-      className={cn(
-        "p-2 rounded-lg flex flex-col justify-center cursor-grab active:cursor-grabbing hover:brightness-110 transition-all select-none w-full h-full min-h-[4rem]",
-        RarityClasses[item.rarity]
-      )}
-      title={`${item.name}
-Útok: ${item.attack}
-Obrana: ${item.defense}
-Cena: ${item.value}`}
-    >
-      <div className="font-bold truncate text-[11px] uppercase tracking-wider">{item.name}</div>
-      <div className="flex gap-2 mt-1 text-[10px] font-bold">
-        {item.attack > 0 && <span className="flex items-center gap-0.5"><Sword size={10} /> {item.attack}</span>}
-        {item.defense > 0 && <span className="flex items-center gap-0.5"><Shield size={10} /> {item.defense}</span>}
-      </div>
-    </div>
-  );
-};
-
-const HERO_ICONS: Record<string, React.ElementType> = {
-  user: User,
-  ghost: Ghost,
-  skull: Skull,
-  crown: Crown,
-  flame: Flame,
-  bird: Bird,
+const HERO_ICONS: Record<string, React.ElementType> = { user: User, ghost: Ghost, skull: Skull, crown: Crown, flame: Flame, bird: Bird
 };
 
 export default function GuildMaster({ gameState, equipItem, unequipItem, startQuest, healHero, sellItem, createHero, deleteHero, renameHero, craftItem, craftMaterial }: Props) {
   const { onDragStart, onDragOver } = useDragAndDrop();
   const [activeLogTab, setActiveLogTab] = useState<'journal' | 'questHistory'>('journal');
-  const [rightPanelTab, setRightPanelTab] = useState<'inventory' | 'chronicles'>('inventory');
-  const [centerTab, setCenterTab] = useState<'quests' | 'forge' | 'inventory'>('quests');
+  const [centerTab, setCenterTab] = useState<'quests' | 'forge' | 'inventory' | 'chronicles'>('quests');
   const [editingHeroId, setEditingHeroId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [deletingHeroId, setDeletingHeroId] = useState<string | null>(null);
+  const [selectedHeroDetailId, setSelectedHeroDetailId] = useState<string | null>(null);
   const [showRecruitForm, setShowRecruitForm] = useState(false);
   const [newHeroName, setNewHeroName] = useState("");
   const [newHeroClass, setNewHeroClass] = useState<HeroClass>('warrior');
@@ -283,6 +249,10 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
               
               const HeroIcon = (hero.icon && HERO_ICONS[hero.icon]) ? HERO_ICONS[hero.icon] : UserRound;
 
+              const currentLevelXp = XP_TO_LEVEL[hero.level - 1] || 0;
+              const nextLevelXp = XP_TO_LEVEL[hero.level] || hero.xp;
+              const xpProgress = nextLevelXp > currentLevelXp ? Math.min(100, Math.max(0, ((hero.xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100)) : 100;
+
               return (
                 <div key={hero.id} className={cn("border-2 p-4 rounded-xl relative overflow-hidden shrink-0 group", bgClass)}>
                   <div className="flex items-center gap-3 relative z-10 mb-3">
@@ -352,7 +322,14 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={cn("font-bold truncate max-w-[110px]", textNameClass)}>{hero.name}</span>
                             {!isQuesting && (
-                              <div className="flex items-center gap-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                  onClick={() => setSelectedHeroDetailId(hero.id)}
+                                  title="Detail hrdiny"
+                                  className="text-slate-400 hover:text-blue-400 p-0.5 transition-colors cursor-pointer"
+                                >
+                                  <Eye size={11} />
+                                </button>
                                 <button 
                                   onClick={() => {
                                     setEditingHeroId(hero.id);
@@ -384,7 +361,8 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                       )}
                     </div>
                     <div className="text-right">
-                       <div className={cn("text-xs font-bold", isDead ? "text-rose-400" : "text-white")}>
+                       <div className={cn("text-xs font-bold flex items-center gap-1 justify-end", isDead ? "text-rose-400" : "text-white")}>
+                         <Heart size={12} className={isDead ? "text-rose-500" : "text-rose-400"} />
                          {hero.currentHp} / {hero.maxHp}
                        </div>
                        {(hero.currentHp < hero.maxHp || isDead) && !isQuesting && (
@@ -396,6 +374,19 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                            Léčit 20g
                          </button>
                        )}
+                    </div>
+                  </div>
+
+                  {/* XP Bar */}
+                  <div className="mb-3 relative z-10 group/xp">
+                    <div className="flex justify-between items-center text-[9px] uppercase font-bold mb-1">
+                      <span className="text-indigo-300">XP {hero.xp}</span>
+                      <span className="text-slate-400">{hero.level >= XP_TO_LEVEL.length ? 'MAX' : nextLevelXp}</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-400 rounded-full relative" style={{ width: `${xpProgress}%` }}>
+                        <div className="absolute top-0 right-0 bottom-0 w-4 bg-white/20 blur-[2px]" />
+                      </div>
                     </div>
                   </div>
 
@@ -457,19 +448,15 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                 </div>
               );
             })}
-            {gameState.heroes.length < 5 && (
-              <div className="border-2 border-dashed border-slate-700 p-4 rounded-xl flex items-center justify-center text-slate-500 font-bold uppercase text-xs h-24 shrink-0">
-                + Naverbovat Hrdinu
-              </div>
-            )}
+
           </div>
         </aside>
 
         {/* Center/Right Area: Quests & Inventory */}
-        <div className="flex-1 flex flex-col xl:flex-row gap-6 overflow-hidden">
+        <div className="flex-1 flex flex-col gap-6 overflow-hidden">
           
           {/* Center Area: Quests or Forge */}
-          <div className="flex-[2] flex flex-col gap-4 overflow-hidden h-full">
+          <div className="flex-1 flex flex-col gap-4 overflow-hidden h-full">
             {/* Center Tab Switcher */}
             <div className="flex gap-2 shrink-0 bg-slate-900/60 p-1.5 rounded-xl border border-slate-800/80">
               <button
@@ -504,6 +491,17 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                 )}
               >
                 <Backpack size={14} /> Sklad Gildy
+              </button>
+              <button
+                onClick={() => setCenterTab('chronicles')}
+                className={cn(
+                  "flex-1 py-2 px-4 rounded-lg font-black uppercase text-xs tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-2",
+                  centerTab === 'chronicles'
+                    ? "bg-fuchsia-600 text-white shadow-[0_0_15px_rgba(192,38,211,0.4)]"
+                    : "text-slate-400 hover:text-slate-200"
+                )}
+              >
+                <BookOpen size={14} /> Kronika & Deník
               </button>
             </div>
 
@@ -567,51 +565,8 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
               <div className="flex-1 overflow-hidden">
                 <GuildForge gameState={gameState} craftItem={craftItem} craftMaterial={craftMaterial} />
               </div>
-            ) : (
+            ) : centerTab === 'inventory' ? (
               <div className="flex-1 overflow-hidden">
-                <GuildInventory 
-                  gameState={gameState}
-                  sellItem={sellItem}
-                  onDragStart={onDragStart}
-                  onDragOver={onDragOver}
-                  handleInventoryDrop={handleInventoryDrop}
-                  ItemCard={ItemCard}
-                  equipItem={equipItem}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Right: Inventory & Logs */}
-          <aside className="flex-1 flex flex-col gap-4 overflow-hidden min-w-[320px]">
-            {/* Right Column Tabs */}
-            <div className="flex gap-2 shrink-0 bg-slate-900/60 p-1.5 rounded-xl border border-slate-800/80">
-              <button
-                onClick={() => setRightPanelTab('inventory')}
-                className={cn(
-                  "flex-1 py-2 px-3 text-xs font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5",
-                  rightPanelTab === 'inventory' 
-                    ? "bg-amber-500 text-slate-950 font-black shadow-md" 
-                    : "text-slate-400 hover:text-slate-200"
-                )}
-              >
-                <Backpack size={14} /> Sklad Gildy ({gameState.inventory.length})
-              </button>
-              <button
-                onClick={() => setRightPanelTab('chronicles')}
-                className={cn(
-                  "flex-1 py-2 px-3 text-xs font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5",
-                  rightPanelTab === 'chronicles' 
-                    ? "bg-amber-500 text-slate-950 font-black shadow-md" 
-                    : "text-slate-400 hover:text-slate-200"
-                )}
-              >
-                <BookOpen size={14} /> Kronika & Deník
-              </button>
-            </div>
-
-            {rightPanelTab === 'inventory' ? (
-              <div className="flex-1 overflow-hidden h-full">
                 <GuildInventory 
                   gameState={gameState}
                   sellItem={sellItem}
@@ -797,9 +752,18 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                 </div>
               </div>
             )}
-          </aside>
+          </div>
         </div>
       </div>
+      
+      {selectedHeroDetailId && (
+        <HeroDetailModal 
+          hero={gameState.heroes.find(h => h.id === selectedHeroDetailId)!}
+          gameState={gameState}
+          onClose={() => setSelectedHeroDetailId(null)}
+          unequipItem={unequipItem}
+        />
+      )}
     </div>
   );
 }
