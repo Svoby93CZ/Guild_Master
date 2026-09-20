@@ -1,6 +1,6 @@
 import React from 'react';
 import { Hero, GameState, InventoryItem } from '../types';
-import { XP_TO_LEVEL } from '../data/constants';
+import { totalXpForLevel, levelProgressPercent } from '../game/rules';
 import { cn } from '../lib/utils';
 import { X, Sword, Shield, Heart, Star, Backpack, Map, Activity, Trophy, Clock, Edit3, BookOpen, Wand2, Check } from 'lucide-react';
 import { useState } from 'react';
@@ -21,9 +21,8 @@ const HeroClassLabels: Record<string, string> = {
 };
 
 export default function HeroDetailModal({ hero, gameState, onClose, unequipItem, updateHeroStory }: Props) {
-  const currentLevelXp = XP_TO_LEVEL[hero.level - 1] || 0;
-  const nextLevelXp = XP_TO_LEVEL[hero.level] || hero.xp;
-  const xpProgress = nextLevelXp > currentLevelXp ? Math.min(100, Math.max(0, ((hero.xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100)) : 100;
+  const nextLevelXp = totalXpForLevel(hero.level + 1);
+  const xpProgress = levelProgressPercent(hero);
 
   const totalAttack = hero.baseAttack + (hero.equipment.weapon?.attack || 0) + (hero.equipment.armor?.attack || 0);
   const totalDefense = hero.baseDefense + (hero.equipment.weapon?.defense || 0) + (hero.equipment.armor?.defense || 0);
@@ -119,7 +118,7 @@ export default function HeroDetailModal({ hero, gameState, onClose, unequipItem,
                 <div>
                   <div className="flex justify-between text-xs font-bold mb-1">
                     <span className="text-blue-400">Zkušenosti (XP)</span>
-                    <span className="text-blue-400">{hero.xp} / {hero.level >= XP_TO_LEVEL.length ? 'MAX' : nextLevelXp}</span>
+                    <span className="text-blue-400">{hero.xp} / {nextLevelXp}</span>
                   </div>
                   <div className="h-2 bg-slate-950 rounded-full overflow-hidden">
                     <div 

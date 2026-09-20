@@ -1,9 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
-import { GameState, Hero, InventoryItem, LogEntry, Quest, CompletedQuest, HeroClass, ItemRarity, MaterialsInventory } from '../types';
-import { INITIAL_HEROES, INITIAL_QUESTS, ITEM_TEMPLATES, XP_TO_LEVEL } from '../data/constants';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  GameState, SaveData, Hero, InventoryItem, LogEntry, CompletedQuest, HeroClass,
+  ItemRarity, MaterialsInventory, GuildUpgrades, OfflineReport
+} from '../types';
+import { INITIAL_HEROES } from '../data/constants';
 import { generateId } from '../lib/utils';
+import {
+  totalMaterials, recruitCost, healCost, guildUpgradeCost, GUILD_UPGRADE_MAX_LEVEL,
+  effectiveQuestDuration, renownFromRun, renownBonus
+} from '../game/rules';
+import { resolveQuest, addMaterials, questBoard } from '../game/quests';
+import { applyOfflineProgress, describeOfflineReport } from '../game/offline';
 
-const DEFAULT_MATERIALS_INVENTORY = {
+const SAVE_KEY = 'guild_master_save';
+const SAVE_VERSION = 3;
+
+const DEFAULT_MATERIALS_INVENTORY: MaterialsInventory = {
   ironOre: 8,
   rawHide: 6,
   oakWood: 10,
@@ -14,68 +26,122 @@ const DEFAULT_MATERIALS_INVENTORY = {
   processedPlank: 2
 };
 
-const awardRawMaterials = (count: number) => {
-  const awarded = { ironOre: 0, rawHide: 0, oakWood: 0, manaCrystal: 0 };
-  for (let i = 0; i < count; i++) {
-    const r = Math.random();
-    if (r < 0.35) {
-      awarded.ironOre++;
-    } else if (r < 0.65) {
-      awarded.oakWood++;
-    } else if (r < 0.90) {
-      awarded.rawHide++;
-    } else {
-      awarded.manaCrystal++;
-    }
+const DEFAULT_UPGRADES: GuildUpgrades = { treasury: 0, warehouse: 0, trainingGround: 0 };
+
+export { totalMaterials, recruitCost, healCost, guildUpgradeCost, GUILD_UPGRADE_MAX_LEVEL, effectiveQuestDuration };
+
+const log = (message: string, type: LogEntry['type'] = 'info'): LogEntry => ({
+  id: generateId(), message, timestamp: Date.now(), type
+});
+
+/**
+ * Sladí vývěsku s aktuálními úrovněmi hrdinů.
+ *
+ * Nabídka úkolů je odvozená od nejlepšího hrdiny, takže se musí přepočítat
+ * pokaždé, když někdo povýší – ať už za běhu hry, nebo při offline dopočtu.
+ */
+const withQuestBoard = (state: GameState): GameState => ({
+  ...state,
+  availableQuests: questBoard(state.heroes)
+});
+
+/** Zaloguje zprávu do deníku a ořízne historii na posledních 50 záznamů. */
+const withLog = (state: GameState, message: string, type: LogEntry['type'] = 'info'): GameState => ({
+  ...state,
+  logs: [log(message, type), ...state.logs].slice(0, 50)
+});
+
+const createNewGame = (): GameState => {
+  const heroes = INITIAL_HEROES.map(h => ({ ...h, equipment: { ...h.equipment } }));
+  return {
+    gold: 150,
+    materialsInventory: { ...DEFAULT_MATERIALS_INVENTORY },
+    heroes,
+    inventory: [],
+    availableQuests: questBoard(heroes),
+    logs: [log('Vítejte v Guild Master! Vaše gilda je otevřena. Kovářská dílna je připravena k práci!')],
+    completedQuests: [],
+    upgrades: { ...DEFAULT_UPGRADES },
+    renown: 0,
+    prestigeCount: 0,
+    offlineReport: null
+  };
+};
+
+/**
+ * Převede libovolný starší save na aktuální podobu. Každý krok migrace je
+ * aditivní – chybějící pole se doplní z výchozích hodnot, neznámá se zahodí.
+ * Díky tomu jde do hry přidávat obsah, aniž by se rozbil dosavadní postup.
+ */
+const migrateSave = (raw: unknown): GameState => {
+  const fresh = createNewGame();
+  if (!raw || typeof raw !== 'object') return fresh;
+  const parsed = raw as Partial<SaveData> & { materials?: number };
+
+  const materialsInventory: MaterialsInventory = {
+    ...DEFAULT_MATERIALS_INVENTORY,
+    ...(parsed.materialsInventory || {})
+  };
+
+  // Elara (hero_2) byla z hry odebrána – vyřadit ji i ze starých savů.
+  const heroes: Hero[] = Array.isArray(parsed.heroes)
+    ? parsed.heroes.filter(h => h && h.id !== 'hero_2').map(h => ({ ...h, autoRepeat: h.autoRepeat ?? false }))
+    : fresh.heroes;
+
+  return {
+    gold: typeof parsed.gold === 'number' ? parsed.gold : fresh.gold,
+    materialsInventory,
+    heroes,
+    inventory: Array.isArray(parsed.inventory) ? parsed.inventory : [],
+    // Katalog úkolů se záměrně nebere ze savu, ale skládá se z konstant a
+    // generovaných smluv, aby se nový obsah objevil i rozehraným gildám.
+    availableQuests: questBoard(heroes),
+    logs: Array.isArray(parsed.logs) ? parsed.logs : fresh.logs,
+    completedQuests: Array.isArray(parsed.completedQuests) ? parsed.completedQuests : [],
+    upgrades: { ...DEFAULT_UPGRADES, ...(parsed.upgrades || {}) },
+    renown: typeof parsed.renown === 'number' ? parsed.renown : 0,
+    prestigeCount: typeof parsed.prestigeCount === 'number' ? parsed.prestigeCount : 0,
+    offlineReport: null
+  };
+};
+
+const loadGame = (): GameState => {
+  const saved = localStorage.getItem(SAVE_KEY);
+  if (!saved) return createNewGame();
+  try {
+    const raw = JSON.parse(saved);
+    const migrated = migrateSave(raw);
+    // Dopočítat, co se stihlo odehrát, než hráč hru zase otevřel.
+    const savedAt = typeof raw?.savedAt === 'number' ? raw.savedAt : Date.now();
+    const { state, report } = applyOfflineProgress(migrated, Date.now(), savedAt);
+    // Hrdinové mohli mezitím povýšit, takže vývěska potřebuje přepočítat.
+    const synced = withQuestBoard(state);
+    if (!report) return synced;
+    return withLog({ ...synced, offlineReport: report }, describeOfflineReport(report), 'success');
+  } catch (e) {
+    console.error('Uložený postup se nepodařilo načíst, začínáme znovu.', e);
+    return createNewGame();
   }
-  return awarded;
+};
+
+const persist = (state: GameState) => {
+  const { availableQuests: _quests, offlineReport: _report, ...persisted } = state;
+  const payload: SaveData = { ...persisted, version: SAVE_VERSION, savedAt: Date.now() };
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+    return true;
+  } catch (e) {
+    console.error('Uložení postupu selhalo.', e);
+    return false;
+  }
 };
 
 export function useGameEngine() {
-  const [gameState, setGameState] = useState<GameState>(() => {
-    const saved = localStorage.getItem('guild_master_save');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (!parsed.completedQuests) {
-          parsed.completedQuests = [];
-        }
-        if (!parsed.materialsInventory) {
-          parsed.materialsInventory = { ...DEFAULT_MATERIALS_INVENTORY };
-        }
-        
-        // Remove hero_2 (Elara) from existing saves if present
-        if (parsed.heroes && Array.isArray(parsed.heroes)) {
-          parsed.heroes = parsed.heroes.filter((h: any) => h.id !== 'hero_2');
-        }
-
-        return parsed;
-      } catch (e) {
-        console.error("Failed to load save", e);
-      }
-    }
-    return {
-      gold: 150,
-      materials: 34,
-      materialsInventory: { ...DEFAULT_MATERIALS_INVENTORY },
-      heroes: INITIAL_HEROES,
-      inventory: [],
-      availableQuests: INITIAL_QUESTS,
-      logs: [{ id: generateId(), message: 'Vítejte v Guild Master! Vaše gilda je otevřena. Kovářská dílna je připravena k práci!', timestamp: Date.now(), type: 'info' }],
-      completedQuests: []
-    };
-  });
-
-  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
-    setGameState(prev => ({
-      ...prev,
-      logs: [{ id: generateId(), message, timestamp: Date.now(), type }, ...prev.logs].slice(0, 50)
-    }));
-  }, []);
+  const [gameState, setGameState] = useState<GameState>(loadGame);
 
   // Save game
   useEffect(() => {
-    localStorage.setItem('guild_master_save', JSON.stringify(gameState));
+    persist(gameState);
   }, [gameState]);
 
   const equipItem = useCallback((heroId: string, itemInstanceId: string, slot: 'weapon' | 'armor') => {
@@ -162,6 +228,11 @@ export function useGameEngine() {
     });
   }, []);
 
+  /**
+   * Dokončí výpravu hrdiny. Samotný výpočet dělá čistá `resolveQuest`, tady se
+   * výsledek jen zanese do stavu gildy – a hrdina se zapnutým opakováním
+   * rovnou vyráží na stejnou výpravu znovu.
+   */
   const completeQuest = useCallback((heroId: string) => {
     setGameState(prev => {
       const hero = prev.heroes.find(h => h.id === heroId);
@@ -170,146 +241,110 @@ export function useGameEngine() {
       const quest = prev.availableQuests.find(q => q.id === hero.activeQuestId);
       if (!quest) return prev;
 
-      // Calculate total stats
-      const totalAttack = hero.baseAttack + (hero.equipment.weapon?.attack || 0) + (hero.equipment.armor?.attack || 0);
-      const totalDefense = hero.baseDefense + (hero.equipment.weapon?.defense || 0) + (hero.equipment.armor?.defense || 0);
-      
-      // Simple combat calculation
-      const combatPower = totalAttack + (totalDefense * 0.5);
-      const successChance = Math.min(0.95, Math.max(0.1, combatPower / quest.difficulty));
-      
-      const isSuccess = Math.random() < successChance;
-      
-      if (!isSuccess) {
-         // Failure
-         const hpLoss = Math.floor(hero.maxHp * 0.5);
-         const newHp = Math.max(0, hero.currentHp - hpLoss);
-         
-         const failedQuestLog: CompletedQuest = {
-           id: generateId(),
-           questId: quest.id,
-           questName: quest.name,
-           heroId: hero.id,
-           heroName: hero.name,
-           completedAt: Date.now(),
-           success: false,
-           xpEarned: 0,
-           goldEarned: 0,
-           materialsEarned: 0
-         };
+      const outcome = resolveQuest(hero, quest, { upgrades: prev.upgrades, renown: prev.renown });
 
-         return {
-           ...prev,
-           heroes: prev.heroes.map(h => h.id === heroId ? {
-             ...h, status: newHp === 0 ? 'dead' : 'idle', activeQuestId: null, questStartTime: null, currentHp: newHp
-           } : h),
-           completedQuests: [failedQuestLog, ...(prev.completedQuests || [])].slice(0, 50),
-           logs: [{ id: generateId(), message: `${hero.name} selhal(a) při plnění úkolu ${quest.name} a ztratil(a) ${hpLoss} HP.`, timestamp: Date.now(), type: 'warning' }, ...prev.logs].slice(0, 50)
-         };
-      }
-
-      // Success
-      let newInventory = [...prev.inventory];
-      let droppedItemName = '';
-      let lootItem: InventoryItem | undefined = undefined;
-      if (Math.random() < quest.rewards.itemDropChance && quest.rewards.possibleLootIds.length > 0) {
-        const lootId = quest.rewards.possibleLootIds[Math.floor(Math.random() * quest.rewards.possibleLootIds.length)];
-        const template = ITEM_TEMPLATES[lootId];
-        if (template) {
-          const newItem: InventoryItem = { ...template, instanceId: generateId() };
-          newInventory.push(newItem);
-          droppedItemName = ` a našel(a) ${template.name}`;
-          lootItem = newItem;
-        }
-      }
-
-      let newXp = hero.xp + quest.rewards.xp;
-      let newLevel = hero.level;
-      let newMaxHp = hero.maxHp;
-      let newBaseAttack = hero.baseAttack;
-      let newBaseDefense = hero.baseDefense;
-      let levelUpMsg = '';
-
-      while (newLevel < XP_TO_LEVEL.length && newXp >= XP_TO_LEVEL[newLevel]) {
-        newLevel++;
-        newMaxHp += 10;
-        newBaseAttack += 3;
-        newBaseDefense += 2;
-        levelUpMsg = ` ${hero.name} dosáhl(a) úrovně ${newLevel}!`;
-      }
-
-      const rawMatRewards = awardRawMaterials(quest.rewards.materials);
-      const materialsList: string[] = [];
-      if (rawMatRewards.ironOre > 0) materialsList.push(`${rawMatRewards.ironOre}x Železná ruda`);
-      if (rawMatRewards.rawHide > 0) materialsList.push(`${rawMatRewards.rawHide}x Surová kůže`);
-      if (rawMatRewards.oakWood > 0) materialsList.push(`${rawMatRewards.oakWood}x Dubové dřevo`);
-      if (rawMatRewards.manaCrystal > 0) materialsList.push(`${rawMatRewards.manaCrystal}x Magický krystal`);
-      const materialsString = materialsList.length > 0 ? ` a suroviny (${materialsList.join(', ')})` : '';
-
-      const successfulQuestLog: CompletedQuest = {
+      const record: CompletedQuest = {
         id: generateId(),
         questId: quest.id,
         questName: quest.name,
         heroId: hero.id,
         heroName: hero.name,
         completedAt: Date.now(),
-        success: true,
-        xpEarned: quest.rewards.xp,
-        goldEarned: quest.rewards.gold,
-        materialsEarned: quest.rewards.materials,
-        manaCrystalsEarned: rawMatRewards.manaCrystal,
-        lootItem
+        success: outcome.success,
+        xpEarned: outcome.xpEarned,
+        goldEarned: outcome.goldEarned,
+        materialsEarned: outcome.materialsEarned,
+        manaCrystalsEarned: outcome.materials.manaCrystal,
+        lootItem: outcome.loot
       };
 
-      const newMaterialsInventory = { ...prev.materialsInventory };
-      newMaterialsInventory.ironOre += rawMatRewards.ironOre;
-      newMaterialsInventory.rawHide += rawMatRewards.rawHide;
-      newMaterialsInventory.oakWood += rawMatRewards.oakWood;
-      newMaterialsInventory.manaCrystal += rawMatRewards.manaCrystal;
+      let updatedHero = outcome.hero;
+      // Automatické opakování: živý hrdina se sám vrací na stejnou výpravu.
+      const repeats = Boolean(hero.autoRepeat) && updatedHero.status === 'idle';
+      if (repeats) {
+        updatedHero = {
+          ...updatedHero,
+          status: 'questing',
+          activeQuestId: quest.id,
+          questStartTime: Date.now()
+        };
+      }
 
-      const totalMaterialsSum = (Object.keys(newMaterialsInventory) as Array<keyof MaterialsInventory>).reduce((acc, key) => acc + newMaterialsInventory[key], 0);
-
-      return {
+      const heroes = prev.heroes.map(h => (h.id === heroId ? updatedHero : h));
+      // Vývěska se přepočítá, aby po postupu na úroveň přibyly nové smlouvy.
+      const next: GameState = withQuestBoard({
         ...prev,
-        gold: prev.gold + quest.rewards.gold,
-        materials: totalMaterialsSum,
-        materialsInventory: newMaterialsInventory,
-        inventory: newInventory,
-        heroes: prev.heroes.map(h => h.id === heroId ? {
-          ...h, 
-          status: 'idle', 
-          activeQuestId: null, 
-          questStartTime: null,
-          xp: newXp,
-          level: newLevel,
-          maxHp: newMaxHp,
-          currentHp: levelUpMsg ? newMaxHp : Math.min(newMaxHp, hero.currentHp + Math.floor(newMaxHp * 0.1)),
-          baseAttack: newBaseAttack,
-          baseDefense: newBaseDefense
-        } : h),
-        completedQuests: [successfulQuestLog, ...(prev.completedQuests || [])].slice(0, 50),
-        logs: [{ 
-          id: generateId(), 
-          message: `${hero.name} úspěšně dokončil(a) úkol ${quest.name}! Získal(a) ${quest.rewards.gold} zlata, ${quest.rewards.xp} XP${materialsString}${droppedItemName}.${levelUpMsg}`, 
-          timestamp: Date.now(), 
-          type: 'success' 
-        }, ...prev.logs].slice(0, 50)
-      };
+        heroes,
+        completedQuests: [record, ...(prev.completedQuests || [])].slice(0, 50)
+      });
+
+      if (!outcome.success) {
+        return withLog(
+          next,
+          `${hero.name} selhal(a) při plnění úkolu ${quest.name} a ztratil(a) ${outcome.hpLost} HP.`,
+          'warning'
+        );
+      }
+
+      const materialNames: string[] = [];
+      if (outcome.materials.ironOre > 0) materialNames.push(`${outcome.materials.ironOre}x Železná ruda`);
+      if (outcome.materials.rawHide > 0) materialNames.push(`${outcome.materials.rawHide}x Surová kůže`);
+      if (outcome.materials.oakWood > 0) materialNames.push(`${outcome.materials.oakWood}x Dubové dřevo`);
+      if (outcome.materials.manaCrystal > 0) materialNames.push(`${outcome.materials.manaCrystal}x Magický krystal`);
+
+      const materialsText = materialNames.length > 0 ? ` a suroviny (${materialNames.join(', ')})` : '';
+      const lootText = outcome.loot ? ` a našel(a) ${outcome.loot.name}` : '';
+      const levelText = outcome.levelsGained > 0 ? ` ${hero.name} dosáhl(a) úrovně ${updatedHero.level}!` : '';
+
+      return withLog(
+        {
+          ...next,
+          gold: prev.gold + outcome.goldEarned,
+          materialsInventory: addMaterials(prev.materialsInventory, outcome.materials),
+          inventory: outcome.loot ? [...prev.inventory, outcome.loot] : prev.inventory
+        },
+        `${hero.name} úspěšně dokončil(a) úkol ${quest.name}! Získal(a) ${outcome.goldEarned} zlata, ${outcome.xpEarned} XP${materialsText}${lootText}.${levelText}`,
+        'success'
+      );
+    });
+  }, []);
+
+  /** Zapne/vypne automatické opakování výpravy u hrdiny. */
+  const toggleAutoRepeat = useCallback((heroId: string) => {
+    setGameState(prev => {
+      const hero = prev.heroes.find(h => h.id === heroId);
+      if (!hero) return prev;
+      const enabled = !hero.autoRepeat;
+      return withLog(
+        { ...prev, heroes: prev.heroes.map(h => (h.id === heroId ? { ...h, autoRepeat: enabled } : h)) },
+        enabled
+          ? `${hero.name} bude výpravy opakovat automaticky.`
+          : `${hero.name} se po návratu z výpravy ohlásí v gildě.`
+      );
     });
   }, []);
 
   const healHero = useCallback((heroId: string) => {
-    const healCost = 20;
     setGameState(prev => {
       const hero = prev.heroes.find(h => h.id === heroId);
-      if (!hero || prev.gold < healCost || hero.currentHp === hero.maxHp || hero.status === 'questing') return prev;
+      if (!hero || hero.status === 'questing') return prev;
+      if (hero.currentHp === hero.maxHp && hero.status !== 'dead') return prev;
 
-      return {
-        ...prev,
-        gold: prev.gold - healCost,
-        heroes: prev.heroes.map(h => h.id === heroId ? { ...h, currentHp: h.maxHp, status: h.status === 'dead' ? 'idle' : h.status } : h),
-        logs: [{ id: generateId(), message: `${hero.name} byl(a) vyléčen(a) za ${healCost} zlata.`, timestamp: Date.now(), type: 'info' }, ...prev.logs].slice(0, 50)
-      };
+      const cost = healCost(hero);
+      if (prev.gold < cost) return prev;
+
+      return withLog(
+        {
+          ...prev,
+          gold: prev.gold - cost,
+          heroes: prev.heroes.map(h =>
+            h.id === heroId ? { ...h, currentHp: h.maxHp, status: h.status === 'dead' ? 'idle' : h.status } : h
+          )
+        },
+        hero.status === 'dead'
+          ? `${hero.name} byl(a) přiveden(a) zpět mezi živé za ${cost} zlata.`
+          : `${hero.name} byl(a) vyléčen(a) za ${cost} zlata.`
+      );
     });
   }, []);
 
@@ -330,9 +365,9 @@ export function useGameEngine() {
   }, []);
 
   const createHero = useCallback((name: string, heroClass: HeroClass, icon: string) => {
-    const recruitCost = 50;
     setGameState(prev => {
-      if (prev.gold < recruitCost) return prev;
+      const cost = recruitCost(prev.heroes.length);
+      if (prev.gold < cost) return prev;
       let maxHp = 40;
       let baseAttack = 10;
       let baseDefense = 3;
@@ -358,14 +393,14 @@ export function useGameEngine() {
         equipment: { weapon: null, armor: null },
         status: 'idle',
         activeQuestId: null,
-        questStartTime: null
+        questStartTime: null,
+        autoRepeat: false
       };
-      return {
-        ...prev,
-        gold: prev.gold - recruitCost,
-        heroes: [...prev.heroes, newHero],
-        logs: [{ id: generateId(), message: `Do gildy byl najat nový hrdina: ${name} (${classLabel}) za ${recruitCost} zlata.`, timestamp: Date.now(), type: 'success' }, ...prev.logs].slice(0, 50)
-      };
+      return withLog(
+        { ...prev, gold: prev.gold - cost, heroes: [...prev.heroes, newHero] },
+        `Do gildy byl najat nový hrdina: ${name} (${classLabel}) za ${cost} zlata.`,
+        'success'
+      );
     });
   }, []);
 
@@ -450,11 +485,8 @@ export function useGameEngine() {
         value: finalValue
       };
       
-      const totalMaterialsSum = (Object.keys(newMaterialsInventory) as Array<keyof MaterialsInventory>).reduce((acc, key) => acc + newMaterialsInventory[key], 0);
-      
       return {
         ...prev,
-        materials: totalMaterialsSum,
         materialsInventory: newMaterialsInventory,
         gold: prev.gold - costGold,
         inventory: [newItem, ...prev.inventory],
@@ -488,9 +520,7 @@ export function useGameEngine() {
       }
       
       newMaterialsInventory[materialKey] += yieldCount;
-      
-      const totalMaterialsSum = (Object.keys(newMaterialsInventory) as Array<keyof MaterialsInventory>).reduce((acc, key) => acc + newMaterialsInventory[key], 0);
-      
+
       const matNames: Record<keyof MaterialsInventory, string> = {
         ironOre: 'Železná ruda',
         rawHide: 'Surová kůže',
@@ -505,7 +535,6 @@ export function useGameEngine() {
       return {
         ...prev,
         gold: prev.gold - costGold,
-        materials: totalMaterialsSum,
         materialsInventory: newMaterialsInventory,
         logs: [{
           id: generateId(),
@@ -517,66 +546,112 @@ export function useGameEngine() {
     });
   }, []);
 
-  // Game loop
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setGameState(prev => {
-        let hasChanges = false;
-        const now = Date.now();
-        
-        prev.heroes.forEach(hero => {
-          if (hero.status === 'questing' && hero.activeQuestId && hero.questStartTime) {
-            const quest = prev.availableQuests.find(q => q.id === hero.activeQuestId);
-            if (quest && now - hero.questStartTime >= quest.durationMs) {
-              hasChanges = true;
-            }
-          }
-        });
+  /** Koupí další stupeň vylepšení gildy – hlavní odběr zlata v pozdní hře. */
+  const buyUpgrade = useCallback((key: keyof GuildUpgrades) => {
+    setGameState(prev => {
+      const level = prev.upgrades[key];
+      if (level >= GUILD_UPGRADE_MAX_LEVEL) return prev;
+      const cost = guildUpgradeCost(level);
+      if (prev.gold < cost) return prev;
 
-        if (hasChanges) {
-          // Instead of modifying state here, we'll queue completions
-          // We can't easily call completeQuest inside this setGameState safely if we are modifying it.
-          // Better approach: just return prev and let a timeout handle it or trigger a ref.
-          // For simplicity in React, we'll just return prev and use a separate effect to call completeQuest.
-        }
-        return prev;
-      });
-    }, 1000);
+      const labels: Record<keyof GuildUpgrades, string> = {
+        treasury: 'Pokladnice',
+        warehouse: 'Sklad',
+        trainingGround: 'Cvičiště'
+      };
 
-    return () => clearInterval(interval);
+      return withLog(
+        {
+          ...prev,
+          gold: prev.gold - cost,
+          upgrades: { ...prev.upgrades, [key]: level + 1 }
+        },
+        `🏛️ ${labels[key]} gildy povýšena na stupeň ${level + 1} za ${cost} zlata.`,
+        'success'
+      );
+    });
   }, []);
 
-  // Check completions
+  /**
+   * Rozpustí gildu výměnou za slávu. Hrdinové, truhla i zlato se ztratí,
+   * sláva ale trvale zvyšuje výnosy všech budoucích gild.
+   */
+  const prestige = useCallback(() => {
+    setGameState(prev => {
+      const gained = renownFromRun(prev.heroes);
+      if (gained <= 0) return prev;
+      if (!window.confirm(
+        `Rozpustit gildu a získat ${gained} slávy?\n\n` +
+        'Přijdete o hrdiny, vybavení, suroviny i zlato. Vylepšení gildy zůstávají. ' +
+        `Sláva trvale zvýší všechny výnosy (nově celkem +${Math.round(renownBonus(prev.renown + gained) * 100)} %).`
+      )) return prev;
+
+      const fresh = createNewGame();
+      return withLog(
+        {
+          ...fresh,
+          upgrades: prev.upgrades,
+          renown: prev.renown + gained,
+          prestigeCount: prev.prestigeCount + 1,
+          logs: prev.logs
+        },
+        `👑 Gilda byla rozpuštěna po ${prev.prestigeCount + 1}. období. Získáno ${gained} slávy – nové výnosy +${Math.round(renownBonus(prev.renown + gained) * 100)} %.`,
+        'success'
+      );
+    });
+  }, []);
+
+  /** Zavře uvítací přehled offline postupu. */
+  const dismissOfflineReport = useCallback(() => {
+    setGameState(prev => (prev.offlineReport ? { ...prev, offlineReport: null } : prev));
+  }, []);
+
+  // Herní smyčka – dokončuje výpravy, kterým vypršela doba trvání.
+  // Porovnává se s reálným časem, takže výprava doběhne i po znovunačtení
+  // stránky nebo když prohlížeč zpomalí časovače na pozadí.
+  const stateRef = useRef(gameState);
+  stateRef.current = gameState;
+
   useEffect(() => {
     const interval = setInterval(() => {
+      const state = stateRef.current;
       const now = Date.now();
-      gameState.heroes.forEach(hero => {
-        if (hero.status === 'questing' && hero.activeQuestId && hero.questStartTime) {
-          const quest = gameState.availableQuests.find(q => q.id === hero.activeQuestId);
-          if (quest && now - hero.questStartTime >= quest.durationMs) {
-            completeQuest(hero.id);
-          }
+      state.heroes.forEach(hero => {
+        if (hero.status !== 'questing' || !hero.activeQuestId || hero.questStartTime == null) return;
+        const quest = state.availableQuests.find(q => q.id === hero.activeQuestId);
+        if (quest && now - hero.questStartTime >= effectiveQuestDuration(quest, state.upgrades)) {
+          completeQuest(hero.id);
         }
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState.heroes, gameState.availableQuests, completeQuest]);
+  }, [completeQuest]);
 
 
   const resetGame = useCallback(() => {
     if (window.confirm("Opravdu chcete vymazat veškerý postup? Hra se restartuje do výchozího nastavení.")) {
-      localStorage.removeItem('guild_master_save');
+      localStorage.removeItem(SAVE_KEY);
       window.location.reload();
     }
   }, []);
 
   const forceSave = useCallback(() => {
-    localStorage.setItem('guild_master_save', JSON.stringify(gameState));
-    alert("Hra byla úspěšně uložena!");
+    alert(persist(gameState)
+      ? 'Hra byla úspěšně uložena!'
+      : 'Hru se nepodařilo uložit – úložiště prohlížeče je plné nebo nedostupné.');
   }, [gameState]);
+
+  /** Odvozené hodnoty, které potřebuje rozhraní na víc místech. */
+  const derived = useMemo(() => ({
+    materialCount: totalMaterials(gameState.materialsInventory),
+    nextRecruitCost: recruitCost(gameState.heroes.length),
+    renownBonusPercent: Math.round(renownBonus(gameState.renown) * 100),
+    pendingRenown: renownFromRun(gameState.heroes)
+  }), [gameState.materialsInventory, gameState.heroes, gameState.renown]);
 
   return {
     gameState,
+    derived,
     equipItem,
     unequipItem,
     resetGame,
@@ -589,6 +664,12 @@ export function useGameEngine() {
     renameHero,
     updateHeroStory,
     craftItem,
-    craftMaterial
+    craftMaterial,
+    toggleAutoRepeat,
+    buyUpgrade,
+    prestige,
+    dismissOfflineReport
   };
 }
+
+export type GameEngine = ReturnType<typeof useGameEngine>;

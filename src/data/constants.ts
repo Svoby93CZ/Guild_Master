@@ -141,6 +141,11 @@ export const INITIAL_QUESTS: Quest[] = [
   }
 ];
 
+/**
+ * @deprecated Hranice úrovní už nejsou tabulkou – používej `totalXpForLevel`
+ * z `game/rules`, která pokračuje donekonečna. Ponecháno jen pro zpětnou
+ * kompatibilitu importů.
+ */
 export const XP_TO_LEVEL = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500];
 
 export const INITIAL_HEROES: Hero[] = [

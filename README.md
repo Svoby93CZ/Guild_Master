@@ -1,20 +1,60 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Guild Master
 
-# Run and deploy your AI Studio app
+Idle/manažerská RPG hra v češtině. Spravuješ gildu dobrodruhů: najímáš hrdiny,
+vybavuješ je, posíláš na výpravy, zpracováváš suroviny a v kovárně kuješ lepší
+výbavu.
 
-This contains everything you need to run your app locally.
+Hra běží i bez tebe: hrdinové se dají přepnout na automatické opakování výpravy
+a po návratu do hry se dopočítá až osm hodin nepřítomnosti.
 
-View your app in AI Studio: https://ai.studio/apps/44623e1e-4a0a-4918-a068-d6de9892fe92
+## Spuštění
 
-## Run Locally
+Potřebuješ Node.js 20 nebo novější.
 
-**Prerequisites:**  Node.js
+```bash
+npm install
+npm run dev      # vývojový server na http://localhost:3000
+```
 
+Další příkazy:
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```bash
+npm run lint     # typová kontrola (tsc --noEmit)
+npm test         # testy herních pravidel (vitest)
+npm run build    # produkční build do dist/
+npm run preview  # náhled produkčního buildu
+```
+
+## Struktura
+
+| Cesta | Obsah |
+| --- | --- |
+| `src/game/rules.ts` | čisté výpočty: úrovně, souboj, ceny, vylepšení, sláva |
+| `src/game/quests.ts` | vyhodnocení výpravy a generování nekonečné vývěsky |
+| `src/game/offline.ts` | dopočet postupu, který proběhl mimo hru |
+| `src/game/__tests__/` | testy herních pravidel |
+| `src/hooks/useGameEngine.ts` | herní stav, smyčka, ukládání a herní akce |
+| `src/data/constants.ts` | herní obsah – ručně psané úkoly, předměty, počáteční hrdinové |
+| `src/components/` | uživatelské rozhraní (gilda, kovárna, truhla, síň gildy) |
+| `src/types.ts` | datové typy včetně podoby uloženého postupu |
+
+### Kde co přidávat
+
+Všechny výpočty patří do `src/game/` jako čisté funkce s předávaným
+generátorem náhody (`rng`). Stejnou logikou se pak vyhodnocuje běžící hra
+i offline dopočet a dá se otestovat bez prohlížeče.
+
+Nový ručně psaný úkol nebo předmět stačí dopsat do `src/data/constants.ts` –
+vývěska se skládá z těchto úkolů plus generovaných smluv podle úrovně
+nejlepšího hrdiny, takže se nový obsah objeví i rozehraným gildám.
+
+## Uložený postup
+
+Hra se ukládá do `localStorage` pod klíčem `guild_master_save`. Do savu jde
+pouze postup hráče – katalog úkolů a předmětů se vždy načítá z
+`src/data/constants.ts`, takže nově přidaný obsah se objeví i rozehraným
+gildám. Starší savy převádí funkce `migrateSave` v `useGameEngine.ts`; když
+budeš měnit podobu stavu, doplň migraci tam a zvyš `SAVE_VERSION`.
+
+Součástí savu je i čas zápisu (`savedAt`), ze kterého se při načtení počítá
+offline postup (`src/game/offline.ts`, strop osm hodin).

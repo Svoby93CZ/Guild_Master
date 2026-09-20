@@ -77,3 +77,16 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(70, 60, 55, 1);
 }
+
+/*
+ * Ovládání, které se jinak ukazuje až po najetí myší.
+ *
+ * Dotykový displej hover nezná, takže by tahle tlačítka (nasadit, prodat,
+ * sundat výbavu) zůstala na telefonu trvale neviditelná a nedostupná.
+ * Tam, kde hover chybí, je proto zobrazujeme natrvalo.
+ */
+@media (hover: none) {
+  .touch-visible {
+    opacity: 1 !important;
+  }
+}
