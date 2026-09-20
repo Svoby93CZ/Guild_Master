@@ -34,6 +34,17 @@ const log = (message: string, type: LogEntry['type'] = 'info'): LogEntry => ({
   id: generateId(), message, timestamp: Date.now(), type
 });
 
+/**
+ * Sladí vývěsku s aktuálními úrovněmi hrdinů.
+ *
+ * Nabídka úkolů je odvozená od nejlepšího hrdiny, takže se musí přepočítat
+ * pokaždé, když někdo povýší – ať už za běhu hry, nebo při offline dopočtu.
+ */
+const withQuestBoard = (state: GameState): GameState => ({
+  ...state,
+  availableQuests: questBoard(state.heroes)
+});
+
 /** Zaloguje zprávu do deníku a ořízne historii na posledních 50 záznamů. */
 const withLog = (state: GameState, message: string, type: LogEntry['type'] = 'info'): GameState => ({
   ...state,
@@ -103,8 +114,10 @@ const loadGame = (): GameState => {
     // Dopočítat, co se stihlo odehrát, než hráč hru zase otevřel.
     const savedAt = typeof raw?.savedAt === 'number' ? raw.savedAt : Date.now();
     const { state, report } = applyOfflineProgress(migrated, Date.now(), savedAt);
-    if (!report) return state;
-    return withLog({ ...state, offlineReport: report }, describeOfflineReport(report), 'success');
+    // Hrdinové mohli mezitím povýšit, takže vývěska potřebuje přepočítat.
+    const synced = withQuestBoard(state);
+    if (!report) return synced;
+    return withLog({ ...synced, offlineReport: report }, describeOfflineReport(report), 'success');
   } catch (e) {
     console.error('Uložený postup se nepodařilo načíst, začínáme znovu.', e);
     return createNewGame();
@@ -265,13 +278,12 @@ export function useGameEngine() {
       }
 
       const heroes = prev.heroes.map(h => (h.id === heroId ? updatedHero : h));
-      const next: GameState = {
+      // Vývěska se přepočítá, aby po postupu na úroveň přibyly nové smlouvy.
+      const next: GameState = withQuestBoard({
         ...prev,
         heroes,
-        // Vývěska se přepočítá, aby po postupu na úroveň přibyly nové smlouvy.
-        availableQuests: questBoard(heroes),
         completedQuests: [record, ...(prev.completedQuests || [])].slice(0, 50)
-      };
+      });
 
       if (!outcome.success) {
         return withLog(
