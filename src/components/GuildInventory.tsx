@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { InventoryItem, ItemRarity, GameState } from '../types';
+import { InventoryItem, ItemRarity, GameState, MaterialsInventory } from '../types';
 import { cn } from '../lib/utils';
+import { totalMaterials } from '../hooks/useGameEngine';
 import { 
   Sword, 
   Shield, 
@@ -68,6 +69,28 @@ const RarityWeight: Record<ItemRarity, number> = {
   legendary: 5
 };
 
+/**
+ * Popis surovin pro záložku "Suroviny". Klíče odpovídají `MaterialsInventory`,
+ * takže se v truhle zobrazují stejná čísla, jaká utrácí kovárna.
+ */
+const MATERIAL_INFO: Array<{
+  key: keyof MaterialsInventory;
+  name: string;
+  description: string;
+  icon: React.ElementType;
+  iconClass: string;
+  valueClass: string;
+}> = [
+  { key: 'ironOre', name: 'Železná ruda', description: 'Surovina kovářů pro tavbu prutů a hřebíků.', icon: Pickaxe, iconClass: 'bg-slate-950/40 border-slate-700/40 text-slate-300', valueClass: 'text-slate-300' },
+  { key: 'rawHide', name: 'Surová kůže', description: 'Stažená kůže ze zvěře, základ pro řemení a pásky.', icon: Shield, iconClass: 'bg-amber-950/30 border-amber-900/40 text-amber-600', valueClass: 'text-amber-600' },
+  { key: 'oakWood', name: 'Dubové dřevo', description: 'Tvrdé dřevo na násady, štíty a prkna.', icon: Hammer, iconClass: 'bg-amber-950/30 border-amber-900/40 text-amber-500', valueClass: 'text-amber-400' },
+  { key: 'manaCrystal', name: 'Magický krystal', description: 'Koncentrovaná magie k očarování předmětů.', icon: Gem, iconClass: 'bg-blue-950/30 border-blue-900/40 text-blue-400', valueClass: 'text-blue-400' },
+  { key: 'ironBar', name: 'Železný prut', description: 'Tavený ingot – polotovar pro čepele a výztuhy.', icon: Sword, iconClass: 'bg-slate-950/40 border-slate-700/40 text-slate-200', valueClass: 'text-slate-200' },
+  { key: 'leatherStrap', name: 'Kožený pásek', description: 'Zpracovaný pruh kůže na rukojeti a řemení.', icon: Shield, iconClass: 'bg-amber-950/30 border-amber-900/40 text-amber-400', valueClass: 'text-amber-300' },
+  { key: 'steelNail', name: 'Ocelový hřebík', description: 'Drobné spoje pro pláty, štíty a zbroje.', icon: Sparkles, iconClass: 'bg-slate-950/40 border-slate-700/40 text-slate-400', valueClass: 'text-slate-300' },
+  { key: 'processedPlank', name: 'Zpracované prkno', description: 'Ohoblované dubové prkno pro štíty a násady.', icon: Hammer, iconClass: 'bg-emerald-950/30 border-emerald-900/40 text-emerald-400', valueClass: 'text-emerald-400' }
+];
+
 export default function GuildInventory({ 
   gameState, 
   sellItem, 
@@ -85,16 +108,10 @@ export default function GuildInventory({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [equippingItemId, setEquippingItemId] = useState<string | null>(null);
 
-  // Computed materials breakdown to make things highly immersive
-  const materialsBreakdown = useMemo(() => {
-    const total = gameState.materials;
-    return {
-      wood: Math.floor(total * 0.4),
-      iron: Math.floor(total * 0.35),
-      herbs: Math.floor(total * 0.15),
-      manaCrystals: total - Math.floor(total * 0.4) - Math.floor(total * 0.35) - Math.floor(total * 0.15)
-    };
-  }, [gameState.materials]);
+  const materialCount = useMemo(
+    () => totalMaterials(gameState.materialsInventory),
+    [gameState.materialsInventory]
+  );
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -190,7 +207,7 @@ export default function GuildInventory({
           </div>
           <div className="bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-blue-400">
             <Pickaxe size={14} className="text-blue-500" />
-            <span>{gameState.materials} ks</span>
+            <span>{materialCount} ks</span>
           </div>
           <div className="bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-slate-300">
             <Info size={14} className="text-slate-400" />
@@ -245,7 +262,7 @@ export default function GuildInventory({
                 : "text-slate-500 border-transparent hover:text-slate-300"
             )}
           >
-            <Pickaxe size={12} /> Suroviny ({gameState.materials})
+            <Pickaxe size={12} /> Suroviny ({materialCount})
           </button>
         </div>
 
@@ -394,55 +411,20 @@ export default function GuildInventory({
           /* Materials View */
           <div className="space-y-4">
             <div className="grid grid-cols-1 @sm:grid-cols-2 gap-4">
-              
-              {/* Construction wood */}
-              <div className="bg-slate-900/60 border border-slate-700/60 p-4 rounded-xl flex gap-4 items-center">
-                <div className="w-12 h-12 rounded-lg bg-amber-950/30 border border-amber-900/40 flex items-center justify-center text-amber-500 shrink-0">
-                  <Hammer size={24} />
+              {MATERIAL_INFO.map(({ key, name, description, icon: Icon, iconClass, valueClass }) => (
+                <div key={key} className="bg-slate-900/60 border border-slate-700/60 p-4 rounded-xl flex gap-4 items-center">
+                  <div className={cn("w-12 h-12 rounded-lg border flex items-center justify-center shrink-0", iconClass)}>
+                    <Icon size={24} />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-xs text-white uppercase">{name}</h4>
+                    <p className="text-[10px] text-slate-400 font-medium">{description}</p>
+                    <p className={cn("text-lg font-mono font-black mt-1", valueClass)}>
+                      {gameState.materialsInventory[key]} ks
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-black text-xs text-white uppercase">Stavební dříví</h4>
-                  <p className="text-[10px] text-slate-400 font-medium">Používá se pro rozšiřování cechovních budov.</p>
-                  <p className="text-lg font-mono font-black text-amber-400 mt-1">{materialsBreakdown.wood} ks</p>
-                </div>
-              </div>
-
-              {/* Iron ore */}
-              <div className="bg-slate-900/60 border border-slate-700/60 p-4 rounded-xl flex gap-4 items-center">
-                <div className="w-12 h-12 rounded-lg bg-slate-950/40 border border-slate-700/40 flex items-center justify-center text-slate-300 shrink-0">
-                  <Pickaxe size={24} />
-                </div>
-                <div>
-                  <h4 className="font-black text-xs text-white uppercase">Železná ruda</h4>
-                  <p className="text-[10px] text-slate-400 font-medium">Materiál kovářů pro kování zbraní a brnění.</p>
-                  <p className="text-lg font-mono font-black text-slate-300 mt-1">{materialsBreakdown.iron} ks</p>
-                </div>
-              </div>
-
-              {/* Herbs */}
-              <div className="bg-slate-900/60 border border-slate-700/60 p-4 rounded-xl flex gap-4 items-center">
-                <div className="w-12 h-12 rounded-lg bg-emerald-950/30 border border-emerald-900/40 flex items-center justify-center text-emerald-400 shrink-0">
-                  <Sparkles size={24} />
-                </div>
-                <div>
-                  <h4 className="font-black text-xs text-white uppercase">Léčivé byliny</h4>
-                  <p className="text-[10px] text-slate-400 font-medium">Uplatnění při vaření hojivých lektvarů.</p>
-                  <p className="text-lg font-mono font-black text-emerald-400 mt-1">{materialsBreakdown.herbs} ks</p>
-                </div>
-              </div>
-
-              {/* Mana Crystals */}
-              <div className="bg-slate-900/60 border border-slate-700/60 p-4 rounded-xl flex gap-4 items-center">
-                <div className="w-12 h-12 rounded-lg bg-blue-950/30 border border-blue-900/40 flex items-center justify-center text-blue-400 shrink-0">
-                  <Gem size={24} />
-                </div>
-                <div>
-                  <h4 className="font-black text-xs text-white uppercase">Elementální krystaly</h4>
-                  <p className="text-[10px] text-slate-400 font-medium">Koncentrovaná magie k očarování předmětů.</p>
-                  <p className="text-lg font-mono font-black text-blue-400 mt-1">{materialsBreakdown.manaCrystals} ks</p>
-                </div>
-              </div>
-
+              ))}
             </div>
 
             <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800 text-xs text-slate-400 leading-relaxed flex gap-3">

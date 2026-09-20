@@ -4,6 +4,7 @@ import { XP_TO_LEVEL } from '../data/constants';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
+import { totalMaterials } from '../hooks/useGameEngine';
 import GuildInventory from './GuildInventory';
 import GuildForge from './GuildForge';
 import { Shield, Sword, Heart, Star, Backpack, Pickaxe, Coins, Beaker, Zap, ShieldAlert, Crosshair, Map, Activity, Coins as CoinsIcon, Tent, UserRound, CheckCircle2, XCircle, Trophy, Sparkles, Plus, Trash2, Edit3, X, Check, BookOpen, Hammer, Gem, User, Ghost, Skull, Crown, Flame, Bird, Eye, Save, RotateCcw } from 'lucide-react';
@@ -121,7 +122,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
             <span className="text-xs uppercase text-slate-400 font-bold">Zlato</span>
           </div>
           <div className="flex items-center gap-2 bg-slate-800/50 px-4 py-1.5 rounded-full border border-slate-700">
-            <span className="text-blue-400 font-bold">{gameState.materials}</span>
+            <span className="text-blue-400 font-bold">{totalMaterials(gameState.materialsInventory)}</span>
             <span className="text-xs uppercase text-slate-400 font-bold">Suroviny</span>
           </div>
         </div>

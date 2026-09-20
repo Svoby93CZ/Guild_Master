@@ -87,13 +87,26 @@ export interface MaterialsInventory {
   processedPlank: number;
 }
 
+/**
+ * Běhový stav hry.
+ *
+ * `availableQuests` je katalog z `data/constants` – do savu se neukládá, aby se
+ * nově přidané úkoly dostaly i k hráčům se starým uloženým postupem.
+ * Celkový počet surovin se neukládá jako pole, ale počítá se z
+ * `materialsInventory` (viz `totalMaterials`), aby nešly rozsynchronizovat.
+ */
 export interface GameState {
   gold: number;
-  materials: number;
   materialsInventory: MaterialsInventory;
   heroes: Hero[];
   inventory: InventoryItem[];
   availableQuests: Quest[];
   logs: LogEntry[];
   completedQuests: CompletedQuest[];
+}
+
+/** Podoba dat v localStorage. Statický obsah (úkoly) se sem záměrně neukládá. */
+export interface SaveData extends Omit<GameState, 'availableQuests'> {
+  version: number;
+  savedAt: number;
 }
