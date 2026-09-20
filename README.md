@@ -27,8 +27,11 @@ Další příkazy:
 npm run lint     # typová kontrola (tsc --noEmit)
 npm test         # testy herních pravidel (vitest)
 npm run build    # produkční build do dist/
-npm run preview  # náhled produkčního buildu
+npm run preview  # náhled produkčního buildu na http://localhost:4173
 ```
+
+Oba servery (`dev` i `preview`) poslouchají i na síti, takže hra jde
+otevřít v mobilu bez dalšího nastavování.
 
 ## Sdílení
 

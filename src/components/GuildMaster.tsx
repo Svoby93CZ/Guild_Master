@@ -515,7 +515,10 @@ export default function GuildMaster({ gameState, derived, equipItem, unequipItem
                     : "text-slate-400 hover:text-slate-200"
                 )}
               >
-                <Map size={14} /> <span className="hidden @3xl:inline">Vývěska</span> Výprav
+                <Map size={14} />
+                {/* Na úzkém displeji se nevejde celý název, proto první pád místo pouhého "Výprav". */}
+                <span className="hidden @3xl:inline">Vývěska Výprav</span>
+                <span className="@3xl:hidden">Výpravy</span>
               </button>
               <button
                 onClick={() => setCenterTab('forge')}
