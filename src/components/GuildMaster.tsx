@@ -3,8 +3,7 @@ import { Hero, InventoryItem, Quest, GameState, HeroClass, ItemRarity, Materials
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
-import { totalMaterials } from '../hooks/useGameEngine';
-import { totalXpForLevel, levelProgressPercent, healCost, recruitCost, effectiveQuestDuration } from '../game/rules';
+import { totalXpForLevel, levelProgressPercent, healCost, effectiveQuestDuration } from '../game/rules';
 import QuestProgress from './QuestProgress';
 import GuildHall from './GuildHall';
 import OfflineReportModal from './OfflineReportModal';
@@ -355,7 +354,7 @@ export default function GuildMaster({ gameState, derived, equipItem, unequipItem
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={cn("font-bold truncate max-w-[110px]", textNameClass)}>{hero.name}</span>
                             {!isQuesting && (
-                              <div className="flex items-center gap-1 opacity-100 @sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center gap-1 opacity-100 @sm:opacity-0 touch-visible group-hover:opacity-100 transition-opacity">
                                 <button 
                                   onClick={() => setSelectedHeroDetailId(hero.id)}
                                   title="Detail hrdiny"
@@ -464,7 +463,7 @@ export default function GuildMaster({ gameState, derived, equipItem, unequipItem
                       {hero.equipment.weapon ? (
                         <>
                           <ItemCard item={hero.equipment.weapon} draggable={false} />
-                          <button onClick={() => unequipItem(hero.id, 'weapon')} className="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => unequipItem(hero.id, 'weapon')} className="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full p-1 opacity-0 touch-visible group-hover:opacity-100 transition-opacity">
                             <Zap size={10} />
                           </button>
                         </>
@@ -484,7 +483,7 @@ export default function GuildMaster({ gameState, derived, equipItem, unequipItem
                       {hero.equipment.armor ? (
                         <>
                           <ItemCard item={hero.equipment.armor} draggable={false} />
-                          <button onClick={() => unequipItem(hero.id, 'armor')} className="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => unequipItem(hero.id, 'armor')} className="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full p-1 opacity-0 touch-visible group-hover:opacity-100 transition-opacity">
                             <Zap size={10} />
                           </button>
                         </>

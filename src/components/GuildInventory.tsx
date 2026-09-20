@@ -458,7 +458,7 @@ export default function GuildInventory({
                     />
                     <button
                       onClick={() => sellItem(item.instanceId)}
-                      className="absolute -top-2 -right-2 bg-rose-500 text-white font-black text-[9px] w-6 h-6 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600 active:scale-95 z-20 cursor-pointer"
+                      className="absolute -top-2 -right-2 bg-rose-500 text-white font-black text-[9px] w-6 h-6 rounded-full flex items-center justify-center shadow-md opacity-0 touch-visible group-hover:opacity-100 transition-opacity hover:bg-rose-600 active:scale-95 z-20 cursor-pointer"
                       title={`Prodat za ${item.value}g`}
                     >
                       <Trash2 size={10} />
@@ -466,7 +466,7 @@ export default function GuildInventory({
                     {equipItem && (
                       <button
                         onClick={() => setEquippingItemId(item.instanceId)}
-                        className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[8px] px-2 py-0.5 rounded shadow-[0_2px_0_#4f46e5] opacity-0 group-hover:opacity-100 transition-opacity active:translate-y-0.5 active:shadow-none z-20 cursor-pointer uppercase tracking-wider whitespace-nowrap"
+                        className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[8px] px-2 py-0.5 rounded shadow-[0_2px_0_#4f46e5] opacity-0 touch-visible group-hover:opacity-100 transition-opacity active:translate-y-0.5 active:shadow-none z-20 cursor-pointer uppercase tracking-wider whitespace-nowrap"
                         title="Nasadit hrdinovi"
                       >
                         Nasadit
@@ -542,7 +542,7 @@ export default function GuildInventory({
                       )}
                       <button
                         onClick={() => sellItem(item.instanceId)}
-                        className="bg-rose-500 hover:bg-rose-600 text-white p-1.5 rounded-lg border border-rose-600/30 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                        className="bg-rose-500 hover:bg-rose-600 text-white p-1.5 rounded-lg border border-rose-600/30 transition-all opacity-0 touch-visible group-hover:opacity-100 cursor-pointer"
                         title="Prodat předmět"
                       >
                         <Trash2 size={12} />

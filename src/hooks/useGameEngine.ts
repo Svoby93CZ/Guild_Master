@@ -139,13 +139,6 @@ const persist = (state: GameState) => {
 export function useGameEngine() {
   const [gameState, setGameState] = useState<GameState>(loadGame);
 
-  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
-    setGameState(prev => ({
-      ...prev,
-      logs: [{ id: generateId(), message, timestamp: Date.now(), type }, ...prev.logs].slice(0, 50)
-    }));
-  }, []);
-
   // Save game
   useEffect(() => {
     persist(gameState);
