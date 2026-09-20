@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Hero, InventoryItem, Quest, GameState, HeroClass, ItemRarity, MaterialsInventory } from '../types';
-import { XP_TO_LEVEL } from '../data/constants';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { totalMaterials } from '../hooks/useGameEngine';
+import { totalXpForLevel, levelProgressPercent } from '../game/rules';
 import GuildInventory from './GuildInventory';
 import GuildForge from './GuildForge';
 import { Shield, Sword, Heart, Star, Backpack, Pickaxe, Coins, Beaker, Zap, ShieldAlert, Crosshair, Map, Activity, Coins as CoinsIcon, Tent, UserRound, CheckCircle2, XCircle, Trophy, Sparkles, Plus, Trash2, Edit3, X, Check, BookOpen, Hammer, Gem, User, Ghost, Skull, Crown, Flame, Bird, Eye, Save, RotateCcw } from 'lucide-react';
@@ -241,7 +241,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
               const isDead = hero.status === 'dead';
               let progress = 0;
               let timeRemaining = "";
-              if (isQuesting && hero.questStartTime && hero.activeQuestId) {
+              if (isQuesting && hero.questStartTime != null && hero.activeQuestId) {
                 const quest = gameState.availableQuests.find(q => q.id === hero.activeQuestId);
                 if (quest) {
                   progress = Math.min(100, Math.max(0, ((Date.now() - hero.questStartTime) / quest.durationMs) * 100));
@@ -262,9 +262,8 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
               
               const HeroIcon = (hero.icon && HERO_ICONS[hero.icon]) ? HERO_ICONS[hero.icon] : UserRound;
 
-              const currentLevelXp = XP_TO_LEVEL[hero.level - 1] || 0;
-              const nextLevelXp = XP_TO_LEVEL[hero.level] || hero.xp;
-              const xpProgress = nextLevelXp > currentLevelXp ? Math.min(100, Math.max(0, ((hero.xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100)) : 100;
+              const nextLevelXp = totalXpForLevel(hero.level + 1);
+              const xpProgress = levelProgressPercent(hero);
 
               return (
                 <div key={hero.id} className={cn("border-2 p-4 rounded-xl relative overflow-hidden shrink-0 group", bgClass)}>
@@ -394,7 +393,7 @@ export default function GuildMaster({ gameState, equipItem, unequipItem, startQu
                   <div className="mb-3 relative z-10 group/xp">
                     <div className="flex justify-between items-center text-[9px] uppercase font-bold mb-1">
                       <span className="text-indigo-300">XP {hero.xp}</span>
-                      <span className="text-slate-400">{hero.level >= XP_TO_LEVEL.length ? 'MAX' : nextLevelXp}</span>
+                      <span className="text-slate-400">{nextLevelXp}</span>
                     </div>
                     <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
                       <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-400 rounded-full relative" style={{ width: `${xpProgress}%` }}>
