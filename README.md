@@ -13,8 +13,13 @@ Potřebuješ Node.js 20 nebo novější.
 
 ```bash
 npm install
-npm run dev      # vývojový server na http://localhost:3000
+npm run dev
 ```
+
+Hra pak běží na <http://localhost:3000>. Vývojový server poslouchá i na
+síti, takže si ji rovnou otevřeš v mobilu na adrese `http://<IP-počítače>:3000`
+(Vite ji po spuštění vypíše jako „Network"). Na Pop!_OS zjistíš IP příkazem
+`hostname -I`.
 
 Další příkazy:
 
@@ -22,8 +27,25 @@ Další příkazy:
 npm run lint     # typová kontrola (tsc --noEmit)
 npm test         # testy herních pravidel (vitest)
 npm run build    # produkční build do dist/
-npm run preview  # náhled produkčního buildu
+npm run preview  # náhled produkčního buildu na http://localhost:4173
 ```
+
+Oba servery (`dev` i `preview`) poslouchají i na síti, takže hra jde
+otevřít v mobilu bez dalšího nastavování.
+
+## Sdílení
+
+Hra je čistě statická – nepotřebuje žádný server ani databázi a postup si
+ukládá do prohlížeče. Dá se proto vystavit kdekoli.
+
+**GitHub Pages** je nastavená v `.github/workflows/deploy.yml`. Stačí
+jednorázově zapnout Settings → Pages → Source: **GitHub Actions**. Potom se
+hra nasadí při každém pushi do `main` (nebo ručně tlačítkem *Run workflow*)
+na adresu `https://<uživatel>.github.io/Guild_Master/`.
+
+**Jiný hosting** (Netlify, Vercel, vlastní web): stačí nahrát obsah složky
+`dist` po `npm run build`. Pokud hra poběží v podadresáři, nastav při buildu
+cestu proměnnou `BASE_PATH`, například `BASE_PATH=/hry/guild-master/ npm run build`.
 
 ## Struktura
 
